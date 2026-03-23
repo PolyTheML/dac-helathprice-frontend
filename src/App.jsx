@@ -336,87 +336,109 @@ export default function App() {
 
         {/* ABOUT PAGE */}
         {showAbout ? (
-          <div className="wizard" style={{ animation: "fadeIn .3s ease both" }}>
-            <div style={{ textAlign: "center", marginBottom: 28 }}>
-              <Logo size={64} />
-              <div style={{ fontSize: 24, fontWeight: 500, marginTop: 12 }}>About DAC HealthPrice</div>
-              <div style={{ fontSize: 13, color: "var(--txt2)", marginTop: 4 }}>AI-powered hospital reimbursement insurance pricing</div>
+          <div className="wizard" style={{ animation: "fadeIn .3s ease both", maxWidth: 680 }}>
+            {/* Hero */}
+            <div style={{ textAlign: "center", marginBottom: 32, paddingTop: 8 }}>
+              <Logo size={72} />
+              <div style={{ fontSize: 26, fontWeight: 500, marginTop: 14, letterSpacing: -0.3 }}>About DAC HealthPrice</div>
+              <div style={{ fontSize: 14, color: "var(--txt2)", marginTop: 6, lineHeight: 1.6, maxWidth: 440, margin: "6px auto 0" }}>
+                AI-powered hospital reimbursement insurance pricing for Cambodia
+              </div>
             </div>
 
-            <div className="card">
-              <div className="card-label">Our mission</div>
-              <p style={{ fontSize: 14, color: "var(--txt2)", lineHeight: 1.7 }}>
-                DAC HealthPrice brings transparent, data-driven pricing to hospital reimbursement insurance in Cambodia. We believe everyone deserves to understand what they're paying for and why. Our platform uses actuarial modeling to deliver fair, personalized premiums based on individual risk profiles — not guesswork.
+            {/* Mission */}
+            <div className="card" style={{ borderLeft: "3px solid var(--gold)", borderRadius: 0 }}>
+              <p style={{ fontSize: 14, color: "var(--txt2)", lineHeight: 1.75, margin: 0, paddingLeft: 4 }}>
+                DAC HealthPrice brings transparent, data-driven pricing to hospital reimbursement insurance in Cambodia. Our platform uses actuarial modeling to deliver fair, personalized premiums based on individual risk profiles — not guesswork.
               </p>
             </div>
 
+            {/* How it works */}
             <div className="card">
               <div className="card-label">How it works</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {[
-                  { num: "1", title: "Tell us about yourself", desc: "Age, gender, region, and family size help us understand your demographic profile." },
-                  { num: "2", title: "Share your health profile", desc: "Smoking habits, exercise routine, occupation, and pre-existing conditions determine your risk level." },
-                  { num: "3", title: "Choose your plan", desc: "Select an IPD tier (Bronze to Platinum) and add optional OPD, Dental, or Maternity riders." },
-                  { num: "4", title: "Get your quote", desc: "Our frequency-severity model calculates your personalized premium with a full actuarial breakdown." },
-                ].map(s => (
-                  <div key={s.num} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--navy)", color: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{s.num}</div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{s.title}</div>
-                      <div style={{ fontSize: 12, color: "var(--txt2)", lineHeight: 1.5 }}>{s.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-label">Our technology</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {[
-                  { title: "Frequency-severity model", desc: "Poisson regression predicts how often you'll claim. Gradient boosting predicts how much each claim costs." },
-                  { title: "8 trained ML models", desc: "Separate frequency + severity models for IPD, OPD, Dental, and Maternity coverage types." },
-                  { title: "Real-time AI advisor", desc: "Built-in AI chatbot recommends the best plan for your profile and explains your pricing." },
-                  { title: "Secure and validated", desc: "API key authentication, rate limiting, cross-region validation, and champion/challenger model promotion." },
-                ].map(t => (
-                  <div key={t.title} style={{ background: "var(--surf2)", borderRadius: 10, padding: 14 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{t.title}</div>
-                    <div style={{ fontSize: 11, color: "var(--txt2)", lineHeight: 1.5 }}>{t.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-label">Coverage options</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ padding: "3px 8px", borderRadius: 4, background: "var(--navy)", color: "white", fontSize: 10, fontWeight: 600 }}>CORE</div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>IPD hospital reimbursement</div>
-                    <div style={{ fontSize: 11, color: "var(--txt3)" }}>Bronze ($15K) · Silver ($40K) · Gold ($80K) · Platinum ($150K)</div>
-                  </div>
-                </div>
-                {[
-                  { name: "OPD rider", desc: "Outpatient consultations, lab tests, minor procedures" },
-                  { name: "Dental rider", desc: "Cleanings, fillings, extractions, X-rays" },
-                  { name: "Maternity rider", desc: "Prenatal visits, delivery, newborn care" },
-                ].map(r => (
-                  <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ padding: "3px 8px", borderRadius: 4, background: "var(--gold-bg)", color: "var(--gold-d)", fontSize: 10, fontWeight: 600 }}>ADD-ON</div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{r.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--txt3)" }}>{r.desc}</div>
+                  { num: "1", title: "Tell us about yourself", desc: "Age, gender, region, and family size" },
+                  { num: "2", title: "Share your health profile", desc: "Smoking, exercise, occupation, conditions" },
+                  { num: "3", title: "Choose your plan", desc: "IPD tier + optional OPD, Dental, Maternity" },
+                  { num: "4", title: "Get your quote", desc: "Personalized premium with full breakdown" },
+                ].map(s => (
+                  <div key={s.num} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 14, background: "var(--surf2)", borderRadius: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--navy)", color: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>{s.num}</div>
+                    <div style={{ paddingTop: 2 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{s.title}</div>
+                      <div style={{ fontSize: 11, color: "var(--txt3)", lineHeight: 1.45 }}>{s.desc}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="card" style={{ background: "var(--navy)", color: "white", textAlign: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>Ready to get your quote?</div>
-              <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 14 }}>It takes less than 2 minutes</div>
-              <button className="btn btn-gold" onClick={() => { setShowAbout(false); setStep(0); }}>
+            {/* Technology */}
+            <div className="card">
+              <div className="card-label">Our technology</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { icon: "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z", title: "Frequency-severity model", desc: "Poisson for claim frequency, gradient boosting for severity" },
+                  { icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5", title: "8 ML models", desc: "Separate freq + sev for IPD, OPD, Dental, Maternity" },
+                  { icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z", title: "AI advisor", desc: "Real-time plan recommendations and explanations" },
+                  { icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", title: "Secure platform", desc: "API auth, rate limiting, champion/challenger validation" },
+                ].map(t => (
+                  <div key={t.title} style={{ padding: 14, background: "var(--surf2)", borderRadius: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--navy)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2"><path d={t.icon} /></svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{t.title}</div>
+                      <div style={{ fontSize: 11, color: "var(--txt3)", lineHeight: 1.45 }}>{t.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Coverage */}
+            <div className="card">
+              <div className="card-label">Coverage options</div>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: 16, background: "var(--navy)", borderRadius: 10, marginBottom: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: "rgba(245,197,99,.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "white" }}>IPD hospital reimbursement</span>
+                    <span style={{ padding: "2px 7px", borderRadius: 4, background: "var(--gold)", color: "var(--navy)", fontSize: 9, fontWeight: 700 }}>CORE</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {["Bronze $15K", "Silver $40K", "Gold $80K", "Platinum $150K"].map(t => (
+                      <span key={t} style={{ padding: "3px 8px", borderRadius: 4, background: "rgba(255,255,255,.1)", color: "rgba(255,255,255,.7)", fontSize: 10 }}>{t}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {[
+                  { name: "OPD", desc: "Consultations, labs, procedures", color: "#3b82f6", bg: "#eff6ff" },
+                  { name: "Dental", desc: "Cleanings, fillings, extractions", color: "#0d9488", bg: "#e1f5ee" },
+                  { name: "Maternity", desc: "Prenatal, delivery, newborn", color: "#be185d", bg: "#fce7f3" },
+                ].map(r => (
+                  <div key={r.name} style={{ padding: 14, borderRadius: 10, border: "1px solid var(--surf3)", textAlign: "center" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: r.bg, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={r.color} strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{r.name} rider</div>
+                    <div style={{ fontSize: 10, color: "var(--txt3)", lineHeight: 1.4 }}>{r.desc}</div>
+                    <div style={{ marginTop: 6, padding: "2px 7px", borderRadius: 4, background: "var(--gold-bg)", color: "var(--gold-d)", fontSize: 9, fontWeight: 600, display: "inline-block" }}>ADD-ON</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="card" style={{ background: "var(--navy)", color: "white", textAlign: "center", padding: 28 }}>
+              <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>Ready to get your quote?</div>
+              <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>It takes less than 2 minutes</div>
+              <button className="btn btn-gold" style={{ maxWidth: 280, margin: "0 auto" }} onClick={() => { setShowAbout(false); setStep(0); }}>
                 Start pricing
               </button>
             </div>
