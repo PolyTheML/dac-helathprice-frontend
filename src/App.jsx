@@ -297,6 +297,8 @@ export default function App() {
   }, [step, inp.ipd_tier, inp.smoking_status, inp.age, peCount]);
 
   const [showAbout, setShowAbout] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [contactSubmitted, setContactSubmitted] = useState(false);
 
   // Rider config for rendering
   const RIDER_CFG = [
@@ -434,13 +436,96 @@ export default function App() {
               </div>
             </div>
 
-            {/* CTA */}
-            <div className="card" style={{ background: "var(--navy)", color: "white", textAlign: "center", padding: 28 }}>
-              <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>Ready to get your quote?</div>
-              <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>It takes less than 2 minutes</div>
-              <button className="btn btn-gold" style={{ maxWidth: 280, margin: "0 auto" }} onClick={() => { setShowAbout(false); setStep(0); }}>
-                Start pricing
-              </button>
+            {/* CTA + Contact Form */}
+            <div className="card" style={{ background: "var(--navy)", color: "white", overflow: "hidden", padding: 0 }}>
+              {/* Top CTA */}
+              <div style={{ textAlign: "center", padding: "28px 28px 20px" }}>
+                <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>Ready to get your quote?</div>
+                <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>It takes less than 2 minutes</div>
+                <button className="btn btn-gold" style={{ maxWidth: 280, margin: "0 auto" }} onClick={() => { setShowAbout(false); setStep(0); }}>
+                  Start pricing
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 28px" }}>
+                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
+                <span style={{ fontSize: 11, opacity: 0.4 }}>or get in touch</span>
+                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
+              </div>
+
+              {/* Contact Form */}
+              <div style={{ padding: "20px 28px 28px" }}>
+                <div style={{ fontSize: 15, fontWeight: 500, color: "var(--gold)", marginBottom: 4 }}>Medical insurance inquiry</div>
+                <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 18 }}>Fill in the form below and our team will get back to you</div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)", display: "block", marginBottom: 4 }}>Full name <span style={{ color: "var(--gold)" }}>*</span></label>
+                    <input
+                      value={contactForm.name} onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Your name"
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "white", fontSize: 13, fontFamily: "var(--fb)", outline: "none" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)", display: "block", marginBottom: 4 }}>Email</label>
+                    <input
+                      value={contactForm.email} onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))}
+                      placeholder="your@email.com" type="email"
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "white", fontSize: 13, fontFamily: "var(--fb)", outline: "none" }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)", display: "block", marginBottom: 4 }}>Phone number <span style={{ color: "var(--gold)" }}>*</span></label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--gold)", color: "var(--navy)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                      +855 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
+                    <input
+                      value={contactForm.phone} onChange={e => setContactForm(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))}
+                      placeholder="12 345 678" type="tel"
+                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "white", fontSize: 13, fontFamily: "var(--fb)", outline: "none" }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)", display: "block", marginBottom: 4 }}>Message <span style={{ color: "var(--gold)" }}>*</span></label>
+                  <textarea
+                    value={contactForm.message} onChange={e => setContactForm(p => ({ ...p, message: e.target.value }))}
+                    placeholder="Tell us about your insurance needs..."
+                    rows={4}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "white", fontSize: 13, fontFamily: "var(--fb)", outline: "none", resize: "vertical" }}
+                  />
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (!contactForm.name || !contactForm.phone || !contactForm.message) {
+                      alert("Please fill in all required fields");
+                      return;
+                    }
+                    setContactSubmitted(true);
+                    setTimeout(() => setContactSubmitted(false), 5000);
+                    setContactForm({ name: "", email: "", phone: "", message: "" });
+                  }}
+                  style={{
+                    width: "100%", padding: 13, borderRadius: 8, border: "none", cursor: "pointer",
+                    background: contactSubmitted ? "var(--ok)" : "var(--gold)", color: contactSubmitted ? "white" : "var(--navy)",
+                    fontSize: 14, fontWeight: 600, fontFamily: "var(--fb)", transition: "all .2s",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  }}
+                >
+                  {contactSubmitted ? <><Ck s={14} /> Message sent!</> : "Submit"}
+                </button>
+
+                <div style={{ textAlign: "center", marginTop: 10, fontSize: 10, opacity: 0.35 }}>
+                  Your information will be kept confidential and used only for insurance consultation purposes.
+                </div>
+              </div>
             </div>
           </div>
         ) : (
