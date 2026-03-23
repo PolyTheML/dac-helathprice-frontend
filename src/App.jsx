@@ -297,6 +297,9 @@ export default function App() {
   }, [step, inp.ipd_tier, inp.smoking_status, inp.age, peCount]);
 
   const [showAbout, setShowAbout] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminKey, setAdminKey] = useState("");
+  const [adminAuthed, setAdminAuthed] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [contactSubmitted, setContactSubmitted] = useState(false);
 
@@ -313,21 +316,23 @@ export default function App() {
       <div className="app">
         {/* NAV */}
         <nav className="nav">
-          <div className="nav-brand" onClick={() => { setStep(0); setResult(null); setShowAbout(false); }}>
+          <div className="nav-brand" onClick={() => { setStep(0); setResult(null); setShowAbout(false); setShowAdmin(false); }}>
             <Logo size={48} />
             <span className="nav-title">DAC HealthPrice</span>
           </div>
           <div className="nav-right">
-            <button onClick={() => setShowAbout(false)} style={{
-              background: !showAbout ? "rgba(255,255,255,.12)" : "transparent",
-              color: !showAbout ? "var(--gold)" : "rgba(255,255,255,.5)",
-              border: "none", cursor: "pointer", padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: !showAbout ? 600 : 400, fontFamily: "var(--fb)"
-            }}>Pricing</button>
-            <button onClick={() => setShowAbout(true)} style={{
-              background: showAbout ? "rgba(255,255,255,.12)" : "transparent",
-              color: showAbout ? "var(--gold)" : "rgba(255,255,255,.5)",
-              border: "none", cursor: "pointer", padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: showAbout ? 600 : 400, fontFamily: "var(--fb)"
-            }}>About</button>
+            {[
+              { label: "Pricing", active: !showAbout && !showAdmin, onClick: () => { setShowAbout(false); setShowAdmin(false); } },
+              { label: "About", active: showAbout, onClick: () => { setShowAbout(true); setShowAdmin(false); } },
+              { label: "Admin", active: showAdmin, onClick: () => { setShowAdmin(true); setShowAbout(false); } },
+            ].map(tab => (
+              <button key={tab.label} onClick={tab.onClick} style={{
+                background: tab.active ? "rgba(255,255,255,.12)" : "transparent",
+                color: tab.active ? "var(--gold)" : "rgba(255,255,255,.5)",
+                border: "none", cursor: "pointer", padding: "4px 12px", borderRadius: 4,
+                fontSize: 11, fontWeight: tab.active ? 600 : 400, fontFamily: "var(--fb)",
+              }}>{tab.label}</button>
+            ))}
             <span style={{ fontSize: 11, color: "rgba(255,255,255,.5)", padding: "4px 10px", borderRadius: 4, background: "rgba(255,255,255,.08)" }}>Cambodia</span>
             <div className="status">
               <div className={`dot ${apiOk ? "ok" : "off"}`} />
@@ -528,6 +533,60 @@ export default function App() {
               </div>
             </div>
           </div>
+        ) : showAdmin ? (
+
+        /* ADMIN PAGE */
+        <div className="wizard" style={{ animation: "fadeIn .3s ease both", maxWidth: 680 }}>
+          {!adminAuthed ? (
+            /* Login gate */
+            <div style={{ maxWidth: 360, margin: "60px auto", textAlign: "center" }}>
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--navy)", color: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 18 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 4 }}>Admin access</div>
+              <div style={{ fontSize: 13, color: "var(--txt3)", marginBottom: 20 }}>Enter your API key to manage models and data</div>
+              <input
+                type="password" placeholder="Enter admin API key"
+                value={adminKey} onChange={e => setAdminKey(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") setAdminAuthed(true); }}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: 8, border: "1.5px solid var(--surf3)", fontSize: 13, fontFamily: "var(--fb)", outline: "none", marginBottom: 10, textAlign: "center" }}
+              />
+              <button className="btn btn-next" onClick={() => { if (adminKey.trim()) setAdminAuthed(true); }}>
+                Unlock
+              </button>
+            </div>
+          ) : (
+            /* Admin dashboard */
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div>
+                  <div className="step-title">Admin dashboard</div>
+                  <div className="step-sub" style={{ marginBottom: 0 }}>Upload data, manage models, trigger retraining</div>
+                </div>
+                <button onClick={() => { setAdminAuthed(false); setAdminKey(""); }} style={{ background: "var(--surf2)", border: "1px solid var(--surf3)", borderRadius: 6, padding: "5px 12px", fontSize: 11, cursor: "pointer", color: "var(--txt3)", fontFamily: "var(--fb)" }}>Lock</button>
+              </div>
+
+              {/* Model status */}
+              <div className="card">
+                <div className="card-label">System status</div>
+                <AdminStatus apiOk={apiOk} adminKey={adminKey} />
+              </div>
+
+              {/* Upload dataset */}
+              <div className="card">
+                <div className="card-label">Upload training data</div>
+                <AdminUpload adminKey={adminKey} />
+              </div>
+
+              {/* Upload history */}
+              <div className="card">
+                <div className="card-label">Upload history</div>
+                <AdminHistory adminKey={adminKey} />
+              </div>
+            </>
+          )}
+        </div>
+
         ) : (
 
         <div className="wizard">
@@ -929,5 +988,195 @@ function AIChat({ inp, result }) {
         </div>
       )}
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function AdminStatus({ apiOk, adminKey }) {
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    apiCall("/api/v2/model-info").then(setInfo).catch(() => {});
+  }, []);
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>API</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: apiOk ? "var(--ok)" : "var(--danger)" }}>{apiOk ? "Connected" : "Offline"}</div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>Model version</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{info?.version || "—"}</div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>Models loaded</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{info?.models?.length || 0}/8</div>
+        </div>
+      </div>
+      {info?.models && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {info.models.map(m => (
+            <span key={m} style={{ padding: "3px 8px", borderRadius: 4, background: "var(--surf2)", fontSize: 10, color: "var(--txt2)" }}>{m}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminUpload({ adminKey }) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [covType, setCovType] = useState("ipd");
+  const [autoRetrain, setAutoRetrain] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
+
+  const handleFile = async (file) => {
+    if (!file || !file.name.endsWith(".csv")) { alert("Please select a CSV file"); return; }
+    setUploading(true); setUploadResult(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("coverage_type", covType);
+      form.append("auto_retrain", autoRetrain.toString());
+      const r = await fetch(`${API}/api/v2/admin/upload-dataset`, {
+        method: "POST", body: form,
+        headers: { "X-API-Key": adminKey },
+        signal: AbortSignal.timeout(120000),
+      });
+      setUploadResult(await r.json());
+    } catch (e) {
+      setUploadResult({ status: "error", detail: e.message });
+    } finally { setUploading(false); }
+  };
+
+  const downloadTemplate = async () => {
+    try {
+      const r = await fetch(`${API}/api/v2/admin/dataset-template`, { headers: { "X-API-Key": adminKey } });
+      const blob = await r.blob();
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "claims_template.csv"; a.click();
+    } catch { alert("Failed to download template"); }
+  };
+
+  return (
+    <div>
+      {/* Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
+        onClick={() => document.getElementById("admin-file").click()}
+        style={{
+          border: `2px dashed ${dragOver ? "var(--gold)" : "var(--surf3)"}`,
+          borderRadius: 10, padding: "28px 20px", textAlign: "center", cursor: "pointer",
+          background: dragOver ? "var(--gold-bg)" : "var(--surf2)", transition: "all .2s", marginBottom: 12,
+        }}
+      >
+        <input id="admin-file" type="file" accept=".csv" onChange={e => handleFile(e.target.files[0])} style={{ display: "none" }} />
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--txt2)" }}>
+          {uploading ? "Uploading..." : "Drag & drop CSV or click to browse"}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 4 }}>Required: age, gender, smoking, exercise, occupation, region, preexist_count, claim_count, claim_amount</div>
+      </div>
+
+      {/* Options */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <label style={{ fontSize: 11, color: "var(--txt2)" }}>Coverage:</label>
+          <select value={covType} onChange={e => setCovType(e.target.value)}
+            style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid var(--surf3)", fontSize: 12, fontFamily: "var(--fb)", background: "white" }}>
+            <option value="ipd">IPD</option><option value="opd">OPD</option><option value="dental">Dental</option><option value="maternity">Maternity</option>
+          </select>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }} onClick={() => setAutoRetrain(!autoRetrain)}>
+          <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${autoRetrain ? "var(--gold-d)" : "var(--surf3)"}`, background: autoRetrain ? "var(--gold)" : "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {autoRetrain && <Ck s={8} />}
+          </div>
+          <span style={{ fontSize: 11, color: "var(--txt2)" }}>Auto-retrain after upload</span>
+        </div>
+        <button onClick={downloadTemplate} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 6, border: "1px solid var(--surf3)", background: "white", fontSize: 11, cursor: "pointer", fontFamily: "var(--fb)", color: "var(--txt2)" }}>
+          Download template
+        </button>
+      </div>
+
+      {/* Result */}
+      {uploadResult && (
+        <div style={{
+          padding: 14, borderRadius: 8, fontSize: 12,
+          background: uploadResult.status === "accepted" ? "#e1f5ee" : "#fef2f2",
+          border: `1px solid ${uploadResult.status === "accepted" ? "#9fe1cb" : "#fca5a5"}`,
+          color: uploadResult.status === "accepted" ? "#085041" : "#dc2626",
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            {uploadResult.status === "accepted" ? "Dataset accepted" : uploadResult.status === "rejected" ? "Rejected" : "Error"}
+          </div>
+          {uploadResult.rows_parsed && <div>Rows parsed: {uploadResult.rows_parsed} | Inserted: {uploadResult.rows_inserted || uploadResult.inserted || 0}</div>}
+          {uploadResult.retrain && uploadResult.retrain.status === "promoted" && (
+            <div style={{ marginTop: 4, color: "#059669" }}>Model retrained: {uploadResult.retrain.version} (R²={uploadResult.retrain.r2})</div>
+          )}
+          {uploadResult.retrain && uploadResult.retrain.status === "rejected" && (
+            <div style={{ marginTop: 4 }}>Challenger rejected — champion R²={uploadResult.retrain.champion_r2} vs challenger R²={uploadResult.retrain.r2}</div>
+          )}
+          {uploadResult.detail && <div>{uploadResult.detail}</div>}
+          {uploadResult.missing && <div>Missing columns: {uploadResult.missing.join(", ")}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminHistory({ adminKey }) {
+  const [history, setHistory] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/api/v2/admin/upload-history`, { headers: { "X-API-Key": adminKey } });
+      const data = await r.json();
+      setHistory(data);
+    } catch { setHistory({ status: "error" }); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (!history) return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>{loading ? "Loading..." : "No data"}</div>;
+  if (history.status === "no_db") return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>Database not connected</div>;
+  if (history.status === "error") return <div style={{ fontSize: 12, color: "var(--danger)", textAlign: "center", padding: 16 }}>Failed to load history</div>;
+
+  const uploads = history.uploads || [];
+  if (uploads.length === 0) return (
+    <div style={{ textAlign: "center", padding: 20 }}>
+      <div style={{ fontSize: 12, color: "var(--txt3)", marginBottom: 8 }}>No datasets uploaded yet</div>
+      <div style={{ fontSize: 11, color: "var(--txt3)" }}>Upload a CSV above to get started</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button onClick={load} style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--surf3)", background: "white", fontSize: 10, cursor: "pointer", fontFamily: "var(--fb)", color: "var(--txt3)" }}>
+          Refresh
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {uploads.map((u, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "var(--surf2)", borderRadius: 8, fontSize: 12 }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>{u.batch_id}</div>
+              <div style={{ fontSize: 10, color: "var(--txt3)" }}>{u.coverage_type} · {u.rows} rows · avg ${u.avg}</div>
+            </div>
+            <div style={{ fontSize: 10, color: "var(--txt3)", textAlign: "right" }}>
+              {u.uploaded_at ? new Date(u.uploaded_at).toLocaleDateString() : "—"}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
