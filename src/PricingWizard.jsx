@@ -768,13 +768,17 @@ export default function PricingWizard() {
                 <div className="row2">
                   <div className="fg">
                     <label className="fl">Height (cm)</label>
-                    <input className="fi" type="number" min="100" max="220" value={inp.bmi_height}
-                      onChange={e => { const n = parseInt(e.target.value); if (!isNaN(n)) u("bmi_height", Math.min(220, Math.max(100, n))); }} />
+                    <input className="fi" type="number" min="100" max="220"
+                      value={inp.bmi_height === 0 ? "" : inp.bmi_height}
+                      onChange={e => { const raw = e.target.value; if (raw === "") { u("bmi_height", 0); return; } const n = parseInt(raw); if (!isNaN(n)) u("bmi_height", n); }}
+                      onBlur={() => { if (!inp.bmi_height || inp.bmi_height < 100) u("bmi_height", 100); else if (inp.bmi_height > 220) u("bmi_height", 220); }} />
                   </div>
                   <div className="fg">
                     <label className="fl">Weight (kg)</label>
-                    <input className="fi" type="number" min="30" max="200" value={inp.bmi_weight}
-                      onChange={e => { const n = parseInt(e.target.value); if (!isNaN(n)) u("bmi_weight", Math.min(200, Math.max(30, n))); }} />
+                    <input className="fi" type="number" min="30" max="200"
+                      value={inp.bmi_weight === 0 ? "" : inp.bmi_weight}
+                      onChange={e => { const raw = e.target.value; if (raw === "") { u("bmi_weight", 0); return; } const n = parseInt(raw); if (!isNaN(n)) u("bmi_weight", n); }}
+                      onBlur={() => { if (!inp.bmi_weight || inp.bmi_weight < 30) u("bmi_weight", 30); else if (inp.bmi_weight > 200) u("bmi_weight", 200); }} />
                   </div>
                 </div>
                 {inp.bmi_height > 0 && inp.bmi_weight > 0 && (() => {
