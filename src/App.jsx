@@ -165,7 +165,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 40, marginBottom: 48 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                <img src="/DAC.jpg" alt="DAC" style={{ width: 72, height: 72, borderRadius: 8, objectFit: "contain", filter: "brightness(0) invert(1)" }} />
+                <img src="/DAC.jpg" alt="DAC" style={{ width: 72, height: 72, borderRadius: 8, objectFit: "contain" }} />
                 <span style={{ color: WHITE, fontSize: 18, fontWeight: 700 }}>DAC HealthPrice</span>
               </div>
               <p style={{ fontSize: 14, lineHeight: 1.7 }}>AI-powered health insurance pricing for Cambodia's emerging market.</p>
