@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
 const API = "https://dac-healthprice-api.onrender.com";
-const LOGO_URL = "/DAC.jpg"; // Your logo in /public
+const LOGO_URL = "/DAC.png"; // Your logo in /public
 
 async function apiCall(path, body) {
   const opts = body
@@ -101,7 +101,7 @@ function localPrice(inp) {
 
 // ─── Small components ───────────────────────────────────────────────────────
 function Logo({ size = 48 }) {
-  if (LOGO_URL) return <img src={LOGO_URL} alt="DAC" style={{ width: size, height: size, borderRadius: size * 0.22, objectFit: "contain", mixBlendMode: "multiply" }} />;
+  if (LOGO_URL) return <img src={LOGO_URL} alt="DAC" style={{ width: size, height: size, objectFit: "contain" }} />;
   return <div style={{ width: size, height: size, borderRadius: size * 0.22, background: "#0d2b7a", display: "flex", alignItems: "center", justifyContent: "center", color: "#f5a623", fontWeight: 600, fontSize: size * 0.35 }}>DAC</div>;
 }
 
