@@ -1005,6 +1005,7 @@ export default function PricingWizard() {
                   <div className="bk-row"><span className="bk-l">Room</span><span className="bk-v">{TIERS[result.ipd_tier]?.room}</span></div>
                   <div className="bk-row"><span className="bk-l">Surgery</span><span className="bk-v">{TIERS[result.ipd_tier]?.surg}</span></div>
                   <div className="bk-row"><span className="bk-l">ICU</span><span className="bk-v">{TIERS[result.ipd_tier]?.icu}</span></div>
+                  <div className="bk-row"><span className="bk-l">Deductible</span><span className="bk-v">{TIERS[result.ipd_tier]?.ded}</span></div>
                 </div>
 
                 <div className="qid"><span>Quote ID</span><code>{result.quote_id}</code></div>
