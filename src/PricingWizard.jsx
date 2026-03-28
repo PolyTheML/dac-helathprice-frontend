@@ -630,6 +630,18 @@ export default function PricingWizard() {
                 <div className="card-label">User quote data</div>
                 <AdminUserData adminKey={adminKey} />
               </div>
+
+              {/* Audit log */}
+              <div className="card">
+                <div className="card-label">Audit log</div>
+                <AdminAuditLog adminKey={adminKey} />
+              </div>
+
+              {/* Model version history */}
+              <div className="card">
+                <div className="card-label">Model version history</div>
+                <AdminModelVersions adminKey={adminKey} />
+              </div>
             </>
           )}
         </div>
@@ -1086,6 +1098,19 @@ export default function PricingWizard() {
                 </div>
               </div>
 
+              {result.underwriting?.status === "refer" && result.underwriting.flags?.length > 0 && (
+                <div className="card" style={{ borderLeft: "3px solid #f59e0b", marginBottom: 14 }}>
+                  <div className="card-label">Underwriting notice</div>
+                  {result.underwriting.flags.map((f, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, fontSize: 12, alignItems: "flex-start", padding: "8px 10px", borderRadius: 6, background: "#fffbeb", color: "#92400e" }}>
+                      <span style={{ fontWeight: 700, flexShrink: 0 }}>⚠ Notice</span>
+                      <span style={{ lineHeight: 1.5 }}>{f.msg}</span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 6 }}>Your premium includes additional loading for the above conditions. An underwriter may contact you to discuss exclusion clauses.</div>
+                </div>
+              )}
+
               <div className="card">
                 {/* IPD Core */}
                 <div className="bk-section">
@@ -1422,6 +1447,10 @@ function AdminStatus({ apiOk, adminKey }) {
     apiCall("/api/v2/model-info").then(setInfo).catch(() => {});
   }, []);
 
+  const retrainedAt = info?.last_retrained_at
+    ? new Date(info.last_retrained_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—";
+
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
@@ -1436,6 +1465,20 @@ function AdminStatus({ apiOk, adminKey }) {
         <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 12, textAlign: "center" }}>
           <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>Models loaded</div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{info?.models?.length || 0}/8</div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10 }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>Last retrained</div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>{retrainedAt}</div>
+          {info?.training_dataset && <div style={{ fontSize: 10, color: "var(--txt3)", marginTop: 2 }}>{info.training_dataset}</div>}
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10 }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>GLM fallback</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: info?.fallback_models_loaded ? "var(--ok)" : "var(--danger)" }}>
+            {info?.fallback_models_loaded ? "Loaded" : info === null ? "—" : "Not loaded"}
+          </div>
+          {info?.r2 !== undefined && <div style={{ fontSize: 10, color: "var(--txt3)", marginTop: 2 }}>Primary R² {info.r2}</div>}
         </div>
       </div>
       {info?.models && (
@@ -1746,6 +1789,169 @@ function AdminUserData({ adminKey }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function AdminAuditLog({ adminKey }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/api/v2/admin/audit-log`, { headers: { "X-API-Key": adminKey } });
+      setData(await r.json());
+    } catch { setData({ status: "error" }); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (!data) return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>{loading ? "Loading..." : "No data"}</div>;
+  if (data.status === "no_db") return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>Database not connected</div>;
+  if (data.status === "error") return <div style={{ fontSize: 12, color: "var(--danger)", textAlign: "center", padding: 16 }}>Failed to load audit log</div>;
+
+  const { summary = {}, records = [] } = data;
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Total quotes</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{summary.total_quotes ?? records.length}</div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Fallback rate</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: (summary.fallback_rate ?? 0) > 20 ? "#dc2626" : "var(--txt)" }}>
+            {summary.fallback_rate ?? "—"}%
+          </div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Decline rate</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{summary.decline_rate ?? "—"}%</div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Refer rate</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{summary.refer_rate ?? "—"}%</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <button onClick={() => setShowTable(!showTable)} style={{
+          padding: "5px 12px", borderRadius: 6, border: "1px solid var(--surf3)", background: showTable ? "var(--navy)" : "white",
+          fontSize: 11, cursor: "pointer", fontFamily: "var(--fb)", color: showTable ? "white" : "var(--txt2)",
+        }}>
+          {showTable ? "Hide" : "Show"} log ({records.length})
+        </button>
+        <button onClick={load} style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--surf3)", background: "white", fontSize: 10, cursor: "pointer", fontFamily: "var(--fb)", color: "var(--txt3)" }}>
+          Refresh
+        </button>
+      </div>
+
+      {showTable && records.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+            <thead>
+              <tr style={{ borderBottom: "1.5px solid var(--surf3)" }}>
+                {["Time", "Age/Gender", "Tier", "UW Status", "Fallback", "Model", "Email"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "6px 6px", fontSize: 10, color: "var(--txt3)", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {records.slice(0, 50).map((r, i) => {
+                const uwColor = r.underwriting_status === "decline" ? "#dc2626" : r.underwriting_status === "refer" ? "#c46800" : "#059669";
+                const uwBg = r.underwriting_status === "decline" ? "#fef2f2" : r.underwriting_status === "refer" ? "#fffbeb" : "#e1f5ee";
+                return (
+                  <tr key={i} style={{ borderBottom: "1px solid var(--surf2)" }}>
+                    <td style={{ padding: "6px", color: "var(--txt3)", fontSize: 10 }}>{r.created_at ? new Date(r.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                    <td style={{ padding: "6px" }}>{r.age}{r.gender ? `/${r.gender[0]}` : ""}</td>
+                    <td style={{ padding: "6px", fontSize: 10 }}>{r.ipd_tier || "—"}</td>
+                    <td style={{ padding: "6px" }}>
+                      <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 10, background: uwBg, color: uwColor, fontWeight: 600 }}>
+                        {r.underwriting_status || "accept"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "6px" }}>
+                      <span style={{ fontSize: 10, color: r.used_fallback ? "#dc2626" : "var(--txt3)" }}>
+                        {r.used_fallback ? "Yes" : "No"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "6px", fontSize: 10, color: "var(--txt3)" }}>{r.model_version ? r.model_version.slice(0, 12) : "—"}</td>
+                    <td style={{ padding: "6px", fontSize: 10, color: "var(--txt3)" }}>{r.email || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminModelVersions({ adminKey }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/api/v2/admin/model-versions`, { headers: { "X-API-Key": adminKey } });
+      setData(await r.json());
+    } catch { setData({ status: "error" }); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (!data) return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>{loading ? "Loading..." : "No data"}</div>;
+  if (data.status === "no_db") return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>Database not connected</div>;
+  if (data.status === "error") return <div style={{ fontSize: 12, color: "var(--danger)", textAlign: "center", padding: 16 }}>Failed to load version history</div>;
+
+  const versions = data.versions || [];
+
+  if (versions.length === 0) return (
+    <div style={{ textAlign: "center", padding: 20 }}>
+      <div style={{ fontSize: 12, color: "var(--txt3)" }}>No version history yet</div>
+      <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 4 }}>Versions are logged after each retrain</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button onClick={load} style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--surf3)", background: "white", fontSize: 10, cursor: "pointer", fontFamily: "var(--fb)", color: "var(--txt3)" }}>
+          Refresh
+        </button>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <thead>
+            <tr style={{ borderBottom: "1.5px solid var(--surf3)" }}>
+              {["Version", "Trained at", "Dataset", "R²", "Rows", "Promoted by"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "6px 6px", fontSize: 10, color: "var(--txt3)", fontWeight: 600 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {versions.map((v, i) => (
+              <tr key={i} style={{ borderBottom: "1px solid var(--surf2)", background: i === 0 ? "#f0fdf4" : "transparent" }}>
+                <td style={{ padding: "6px", fontWeight: i === 0 ? 600 : 400, fontSize: 10, fontFamily: "monospace" }}>{v.version}</td>
+                <td style={{ padding: "6px", color: "var(--txt3)", fontSize: 10 }}>
+                  {v.trained_at ? new Date(v.trained_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                </td>
+                <td style={{ padding: "6px", fontSize: 10 }}>{v.dataset || "—"}</td>
+                <td style={{ padding: "6px" }}>{v.r2 !== undefined && v.r2 !== null ? v.r2 : "—"}</td>
+                <td style={{ padding: "6px" }}>{v.training_rows ?? "—"}</td>
+                <td style={{ padding: "6px", fontSize: 10, color: "var(--txt3)" }}>{v.promoted_by || "auto"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
