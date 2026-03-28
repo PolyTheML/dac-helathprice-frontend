@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import PricingWizard from "./PricingWizard";
 
 
+const API_URL = "https://dac-healthprice-api.onrender.com";
+
 const NAVY = "#0d2b7a";
 const NAVY_D = "#091d5e";
 const NAVY_L = "#1a4fba";
@@ -105,7 +107,7 @@ export default function App() {
         .hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; position:relative; z-index:1; }
         .hero-inner { padding:80px 24px; }
         .grid-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:32px; text-align:center; }
-        .grid-how { display:grid; grid-template-columns:repeat(3,1fr); gap:40px; }
+        .grid-how { display:grid; grid-template-columns:repeat(4,1fr); gap:32px; }
         .grid-features { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; }
         @media (max-width:768px) {
           .hamburger { display:flex; }
@@ -204,6 +206,41 @@ export default function App() {
 // HOME PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 function HomePage({ onGetQuote }) {
+  const [sampleQuote, setSampleQuote] = useState(null);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const sRes = await fetch(`${API_URL}/api/v2/session`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "demo@dactuaries.com", browser_id: "homepage-demo" }),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!sRes.ok) return;
+        const { token } = await sRes.json();
+        const pRes = await fetch(`${API_URL}/api/v2/price`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Session-Token": token },
+          body: JSON.stringify({
+            age: 35, gender: "Male", country: "cambodia", region: "Phnom Penh",
+            smoking_status: "Never", exercise_frequency: "Moderate",
+            occupation_type: "Office/Desk", preexist_conditions: ["None"],
+            ipd_tier: "Silver", family_size: 1,
+            include_opd: false, include_dental: false, include_maternity: false,
+            browser_id: "homepage-demo", email: "demo@dactuaries.com",
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!pRes.ok) return;
+        setSampleQuote(await pRes.json());
+      } catch { /* keep static fallback */ }
+    };
+    run();
+  }, []);
+
+  const monthly = sampleQuote ? Math.round(sampleQuote.total_monthly_premium) : null;
+  const annual  = sampleQuote ? sampleQuote.total_annual_premium : null;
+
   return (
     <>
       {/* ═══ HERO ═══ */}
@@ -251,10 +288,15 @@ function HomePage({ onGetQuote }) {
           {/* Hero right — Stats cards */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}>
             <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, border: "1px solid rgba(255,255,255,0.08)", padding: 32, width: "100%", maxWidth: 420, backdropFilter: "blur(12px)" }}>
-              <p style={{ color: GRAY, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Sample quote — 35M, Non-smoker</p>
+              <p style={{ color: GRAY, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                Sample quote — 35M, Non-smoker{sampleQuote ? " · Live" : ""}
+              </p>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
-                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, fontWeight: 700, color: GOLD }}>$25</span>
+                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, fontWeight: 700, color: GOLD }}>
+                  {monthly !== null ? `$${monthly}` : "$—"}
+                </span>
                 <span style={{ color: GRAY, fontSize: 16 }}>/month</span>
+                {annual && <span style={{ color: GRAY, fontSize: 12, opacity: 0.7 }}>(${annual.toLocaleString()}/yr)</span>}
               </div>
               <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
                 {["Bronze", "Silver", "Gold", "Platinum"].map((t, i) => (
@@ -321,9 +363,10 @@ function HomePage({ onGetQuote }) {
           </FadeIn>
           <div className="grid-how">
             {[
-              { step: "01", title: "Tell us about you", desc: "Enter your age, health habits, occupation, and region in our guided step-by-step wizard. Takes under 2 minutes.", icon: "👤" },
-              { step: "02", title: "AI picks your plan", desc: "Our frequency-severity models calculate your risk profile. The AI recommends your optimal tier — Bronze, Silver, Gold, or Platinum.", icon: "🤖" },
-              { step: "03", title: "See your quote", desc: "Get a transparent premium breakdown showing claim frequency, severity, loading, and deductible credit. Ask the AI chatbot for advice.", icon: "💰" },
+              { step: "01", title: "Tell us about you", desc: "Enter your age, health history, lifestyle, and region across three short screens. The guided wizard takes under 2 minutes.", icon: "👤" },
+              { step: "02", title: "Choose your cover", desc: "Pick your IPD tier — Bronze, Silver, Gold, or Platinum — and add optional OPD, Dental, or Maternity riders to suit your needs.", icon: "🛡️" },
+              { step: "03", title: "Underwriting review", desc: "Our rule engine instantly assesses your risk profile. Pre-existing conditions and lifestyle factors are flagged transparently before you commit.", icon: "🔍" },
+              { step: "04", title: "Your personalised quote", desc: "Receive a live ML-priced premium breakdown — frequency, severity, and loading shown clearly. Ask the AI chatbot anything about your plan.", icon: "💰" },
             ].map((s, i) => (
               <FadeIn key={i} delay={i * 0.15}>
                 <div className="card-hover" style={{ background: WHITE, borderRadius: 16, padding: 36, border: "1px solid #e5e7eb", transition: "all 0.3s", position: "relative", overflow: "hidden" }}>
