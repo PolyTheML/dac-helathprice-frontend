@@ -44,7 +44,7 @@ const TIERS = {
   Gold:     { limit: "$80,000",  room: "Private Room",   surg: "$40,000", icu: "14 days", ded: "$100",  dedN: 100 },
   Platinum: { limit: "$150,000", room: "Private Suite",  surg: "$80,000", icu: "30 days", ded: "$0",    dedN: 0 },
 };
-const STEPS = ["Profile", "Health", "Lifestyle", "Plan", "Quote"];
+const STEPS = ["Profile", "Health", "Lifestyle", "Plan", "Review", "Quote"];
 const FB_FREQ = { ipd: 0.12, opd: 2.5, dental: 0.8, maternity: 0.15 };
 const FB_SEV = { ipd: 2500, opd: 60, dental: 120, maternity: 3500 };
 const TIER_F = { Bronze: 0.70, Silver: 1.00, Gold: 1.45, Platinum: 2.10 };
@@ -106,6 +106,22 @@ function localPrice(inp) {
     total_annual_premium: total, total_monthly_premium: Math.round(total / 12 * 100) / 100,
     risk_profile: { age: inp.age, gender: inp.gender, smoking: inp.smoking_status, exercise: inp.exercise_frequency, occupation: inp.occupation_type, preexist_conditions: inp.preexist_conditions },
   };
+}
+
+// ─── Underwriting / Rule Engine ─────────────────────────────────────────────
+function checkUnderwriting(inp) {
+  const flags = [];
+  const conditions = inp.preexist_conditions.filter(c => c !== "None");
+  if (inp.age > 70) flags.push({ level: "decline", msg: "Age exceeds maximum insurable limit (70). Manual underwriting required before coverage can be offered." });
+  if (inp.age < 18) flags.push({ level: "decline", msg: "Minimum insurable age is 18. Coverage is not available for this applicant." });
+  if (conditions.includes("Cancer (remission)")) flags.push({ level: "warn", msg: "Cancer history detected: additional medical underwriting review required. Premium loading and exclusion clauses may apply." });
+  if (conditions.includes("Kidney Disease")) flags.push({ level: "warn", msg: "Kidney disease: renal-related claims may be subject to an exclusion clause. Additional loading applies." });
+  if (conditions.includes("Liver Disease")) flags.push({ level: "warn", msg: "Liver disease: hepatic-related claims may be subject to an exclusion clause. Additional loading applies." });
+  if (conditions.length >= 3) flags.push({ level: "warn", msg: `${conditions.length} pre-existing conditions declared — medical underwriting referral is recommended before binding coverage.` });
+  if (inp.smoking_status === "Current" && (conditions.includes("Heart Disease") || conditions.includes("Asthma/COPD"))) {
+    flags.push({ level: "warn", msg: "High-risk combination: current smoker with cardiovascular or respiratory condition. Significant additional loading will apply." });
+  }
+  return flags;
 }
 
 // ─── Small components ───────────────────────────────────────────────────────
@@ -224,7 +240,7 @@ input[type="range"]{height:6px;border-radius:3px;outline:none;cursor:pointer}
 .footer{padding:20px;text-align:center;font-size:11px;color:var(--txt3);border-top:1px solid var(--surf3)}
 .footer-tags{display:flex;gap:4px;justify-content:center;margin-top:4px}
 .footer-tag{padding:2px 7px;border-radius:4px;font-size:10px;background:var(--surf2);color:var(--txt3)}
-@media(max-width:640px){.row2,.row3{grid-template-columns:1fr}.tier-grid{grid-template-columns:1fr 1fr}.wizard{padding:20px 14px}.ai-panel{width:calc(100vw - 32px);right:16px;max-width:360px}.res-amount{font-size:34px}}
+@media(max-width:640px){.row2,.row3{grid-template-columns:1fr}.tier-grid{grid-template-columns:1fr 1fr}.wizard{padding:20px 14px}.ai-panel{width:calc(100vw - 32px);right:16px;max-width:360px}.res-amount{font-size:34px}.step-label{display:none}}
 @media(max-width:360px){.tier-grid{grid-template-columns:1fr}}
 `;
 
@@ -303,12 +319,14 @@ export default function PricingWizard() {
     } catch {
       res = localPrice(target); setResult(res); setIsLocal(true);
     } finally {
-      setLoading(false); setStep(4);
+      setLoading(false); setStep(5);
     }
     return res;
   }, [inp]);
 
   const peCount = inp.preexist_conditions.filter(p => p !== "None").length;
+  const uwFlags = checkUnderwriting(inp);
+  const hasDecline = uwFlags.some(f => f.level === "decline");
 
   const estRider = (cov) => {
     const af = 1 + Math.max(0, (inp.age - 35)) * 0.008;
@@ -621,13 +639,13 @@ export default function PricingWizard() {
           <div className="steps">
             {STEPS.map((s, i) => (
               <React.Fragment key={i}>
-                <div className="step-item" onClick={() => { if (i <= step || (i === 4 && result)) setStep(i); }}>
-                  <div className={`step-dot ${i < step || (i === 4 && result) ? "done" : i === step ? "active" : "pending"}`}>
+                <div className="step-item" onClick={() => { if (i <= step || (i === 5 && result)) setStep(i); }}>
+                  <div className={`step-dot ${i < step || (i === 5 && result) ? "done" : i === step ? "active" : "pending"}`}>
                     {i < step ? <Ck s={12} /> : i + 1}
                   </div>
                   <span className={`step-label ${i < step ? "done" : i === step ? "active" : "pending"}`}>{s}</span>
                 </div>
-                {i < 4 && <div className={`step-line ${i < step ? "done" : "pending"}`} />}
+                {i < 5 && <div className={`step-line ${i < step ? "done" : "pending"}`} />}
               </React.Fragment>
             ))}
           </div>
@@ -965,15 +983,86 @@ export default function PricingWizard() {
 
               <div className="btn-row">
                 <button className="btn btn-back" onClick={() => setStep(2)}>Back</button>
-                <button className="btn btn-gold" onClick={() => calculate()} disabled={loading}>
-                  {loading ? <><Spinner /> Calculating...</> : "Get my quote"}
+                <button className="btn btn-gold" onClick={() => setStep(4)}>Review my details →</button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 5A: REVIEW & CONFIRM */}
+          {step === 4 && (
+            <div className="step-content">
+              <div className="step-title">Review your information</div>
+              <div className="step-sub">Confirm all details are correct before we calculate your premium</div>
+
+              <div className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div className="card-label" style={{ marginBottom: 0 }}>Personal profile</div>
+                  <button onClick={() => setStep(0)} style={{ background: "none", border: "1px solid var(--surf3)", borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "var(--txt3)", fontFamily: "var(--fb)" }}>Edit</button>
+                </div>
+                <div className="bk-row"><span className="bk-l">Age / Gender</span><span className="bk-v">{inp.age} / {inp.gender}</span></div>
+                <div className="bk-row"><span className="bk-l">Region</span><span className="bk-v">{inp.region}</span></div>
+                <div className="bk-row"><span className="bk-l">Marital status</span><span className="bk-v">{inp.marital_status}</span></div>
+                <div className="bk-row"><span className="bk-l">Family size</span><span className="bk-v">{inp.family_size} {inp.family_size > 1 ? "members" : "member"}</span></div>
+              </div>
+
+              <div className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div className="card-label" style={{ marginBottom: 0 }}>Health profile</div>
+                  <button onClick={() => setStep(1)} style={{ background: "none", border: "1px solid var(--surf3)", borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "var(--txt3)", fontFamily: "var(--fb)" }}>Edit</button>
+                </div>
+                <div className="bk-row"><span className="bk-l">Pre-existing conditions</span><span className="bk-v">{inp.preexist_conditions.join(", ")}</span></div>
+                <div className="bk-row"><span className="bk-l">Smoking status</span><span className="bk-v">{inp.smoking_status}</span></div>
+                <div className="bk-row"><span className="bk-l">BMI</span><span className="bk-v">{inp.bmi_weight && inp.bmi_height ? (inp.bmi_weight / ((inp.bmi_height / 100) ** 2)).toFixed(1) : "N/A"}</span></div>
+                <div className="bk-row"><span className="bk-l">Prior hospitalizations</span><span className="bk-v">{inp.prev_hospitalizations}</span></div>
+                <div className="bk-row"><span className="bk-l">Current medications</span><span className="bk-v">{inp.medications_count}</span></div>
+              </div>
+
+              <div className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div className="card-label" style={{ marginBottom: 0 }}>Lifestyle</div>
+                  <button onClick={() => setStep(2)} style={{ background: "none", border: "1px solid var(--surf3)", borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "var(--txt3)", fontFamily: "var(--fb)" }}>Edit</button>
+                </div>
+                <div className="bk-row"><span className="bk-l">Occupation</span><span className="bk-v">{inp.occupation_type}</span></div>
+                <div className="bk-row"><span className="bk-l">Exercise</span><span className="bk-v">{inp.exercise_days}d × {inp.exercise_mins}min/wk ({inp.exercise_frequency})</span></div>
+                <div className="bk-row"><span className="bk-l">Alcohol</span><span className="bk-v">{inp.alcohol}</span></div>
+                <div className="bk-row"><span className="bk-l">Stress / Sleep</span><span className="bk-v">{inp.stress_level} / {inp.sleep_quality}</span></div>
+              </div>
+
+              <div className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div className="card-label" style={{ marginBottom: 0 }}>Selected plan</div>
+                  <button onClick={() => setStep(3)} style={{ background: "none", border: "1px solid var(--surf3)", borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "var(--txt3)", fontFamily: "var(--fb)" }}>Edit</button>
+                </div>
+                <div className="bk-row"><span className="bk-l">IPD tier</span><span className="bk-v">{inp.ipd_tier} — {TIERS[inp.ipd_tier].limit} limit</span></div>
+                <div className="bk-row"><span className="bk-l">Room type</span><span className="bk-v">{TIERS[inp.ipd_tier].room}</span></div>
+                <div className="bk-row"><span className="bk-l">Deductible</span><span className="bk-v">{TIERS[inp.ipd_tier].ded}</span></div>
+                <div className="bk-row"><span className="bk-l">Optional riders</span><span className="bk-v">{[inp.include_opd && "OPD", inp.include_dental && "Dental", inp.include_maternity && "Maternity"].filter(Boolean).join(", ") || "None"}</span></div>
+              </div>
+
+              {uwFlags.length > 0 && (
+                <div className="card" style={{ borderLeft: `3px solid ${hasDecline ? "var(--danger)" : "#f59e0b"}` }}>
+                  <div className="card-label">Underwriting notice</div>
+                  {uwFlags.map((f, idx) => (
+                    <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, fontSize: 12, alignItems: "flex-start", padding: "8px 10px", borderRadius: 6, background: f.level === "decline" ? "#fef2f2" : "#fffbeb", color: f.level === "decline" ? "var(--danger)" : "#92400e" }}>
+                      <span style={{ fontWeight: 700, flexShrink: 0 }}>{f.level === "decline" ? "✕ Decline" : "⚠ Notice"}</span>
+                      <span style={{ lineHeight: 1.5 }}>{f.msg}</span>
+                    </div>
+                  ))}
+                  {hasDecline && <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 6 }}>An underwriter will contact you to discuss available coverage options.</div>}
+                </div>
+              )}
+
+              <div className="btn-row">
+                <button className="btn btn-back" onClick={() => setStep(3)}>Back</button>
+                <button className="btn btn-gold" onClick={() => calculate()} disabled={loading || hasDecline}>
+                  {loading ? <><Spinner /> Calculating…</> : hasDecline ? "Manual review required" : "Confirm & get quote →"}
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 5: QUOTE */}
-          {step === 4 && result && (
+          {/* STEP 6: QUOTE */}
+          {step === 5 && result && (
             <div className="step-content">
               <div className="res-hero">
                 <div className="res-label">Your annual premium — Cambodia</div>
@@ -1017,13 +1106,25 @@ export default function PricingWizard() {
                   <div className="bk-row"><span className="bk-l">Deductible</span><span className="bk-v">{TIERS[result.ipd_tier]?.ded}</span></div>
                 </div>
 
-                <div className="qid"><span>Quote ID</span><code>{result.quote_id}</code></div>
-                {isLocal && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fef3c7", color: "#92400e", fontSize: 11 }}>Local calculation — backend unavailable</div>}
+                <div className="qid">
+                  <span>Quote ID</span><code>{result.quote_id}</code>
+                </div>
+                <div className="qid" style={{ marginTop: 4 }}>
+                  <span>Model version</span><code>{result.model_version || "local"}</code>
+                </div>
+                <div style={{ marginTop: 10, padding: "6px 10px", borderRadius: 6, background: "var(--surf2)", display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--txt3)" }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  Quote logged to audit trail · {new Date().toLocaleString()}
+                </div>
+                {isLocal && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fef3c7", color: "#92400e", fontSize: 11 }}>⚠ Local calculation (simplified factor model) — ML backend unavailable. This estimate may differ from the actuarial model result once connectivity is restored.</div>}
               </div>
 
               <div className="btn-row">
                 <button className="btn btn-back" onClick={() => setStep(3)}>Modify plan</button>
                 <button className="btn btn-next" onClick={() => { setStep(0); setResult(null); }}>New quote</button>
+              </div>
+              <div style={{ marginTop: 12, textAlign: "center", fontSize: 11, color: "var(--txt3)" }}>
+                Use the AI advisor (bottom-right) to explore plan options and recalculate
               </div>
             </div>
           )}
@@ -1092,7 +1193,7 @@ const TOOLS = [
     input_schema: {
       type: "object",
       properties: {
-        step: { type: "number", enum: [0, 1, 2, 3, 4], description: "Step number to navigate to. 0=Personal info, 1=Health info, 2=Lifestyle, 3=Plan selection, 4=Quote result." }
+        step: { type: "number", enum: [0, 1, 2, 3, 4, 5], description: "Step number to navigate to. 0=Personal info, 1=Health info, 2=Lifestyle, 3=Plan selection, 4=Review & confirm, 5=Quote result." }
       },
       required: ["step"]
     }
@@ -1100,12 +1201,12 @@ const TOOLS = [
 ];
 
 const RIDER_NAMES = { include_opd: "OPD", include_dental: "Dental", include_maternity: "Maternity" };
-const STEP_NAMES = ["Personal info", "Health info", "Lifestyle", "Plan selection", "Quote result"];
+const STEP_NAMES = ["Personal info", "Health info", "Lifestyle", "Plan selection", "Review & confirm", "Quote result"];
 
 function AIChat({ inp, result, onSwitchTier, onToggleRider, onCalculateWith, onGoToStep }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([
-    { role: "bot", text: "Hi! I'm your AI advisor. I can recommend plans, explain pricing, or make changes directly — just ask." }
+    { role: "bot", text: "Hi! I'm your AI advisor. Once you have a quote, I can help you optimize your plan — switch tiers, add riders, explain your premium, or recalculate. You can also ask me questions at any step." }
   ]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
