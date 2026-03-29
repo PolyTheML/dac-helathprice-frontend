@@ -108,6 +108,25 @@ function localPrice(inp) {
   };
 }
 
+// ─── Price band (information-disclosure control) ────────────────────────────
+// Shows a range rather than an exact figure. The midpoint is shifted by a
+// small session-consistent jitter derived from the browser ID, so different
+// sessions produce different ranges for the same profile — preventing a
+// competitor from pinpointing the exact price with a single representative query.
+function priceBand(annualPremium, browserId) {
+  let h = 0;
+  for (let i = 0; i < Math.min(browserId.length, 16); i++) {
+    h = Math.imul(h ^ browserId.charCodeAt(i), 0x9e3779b9);
+  }
+  const jitter = ((Math.abs(h) % 601) - 300) / 10000; // ±3 %, deterministic per browser
+  const mid = annualPremium * (1 + jitter);
+  const B = 0.07; // ±7 % display band
+  return {
+    monthly: { low: Math.floor(mid * (1 - B) / 12), high: Math.ceil(mid * (1 + B) / 12) },
+    annual:  { low: Math.floor(mid * (1 - B)),       high: Math.ceil(mid * (1 + B)) },
+  };
+}
+
 // ─── Underwriting / Rule Engine ─────────────────────────────────────────────
 function checkUnderwriting(inp) {
   const flags = [];
@@ -1087,14 +1106,25 @@ export default function PricingWizard() {
           )}
 
           {/* STEP 6: QUOTE */}
-          {step === 5 && result && (
+          {step === 5 && result && (() => {
+            const band = priceBand(result.total_annual_premium, getBrowserId());
+            return (
             <div className="step-content">
+              {/* Hero — shows range, not exact price */}
               <div className="res-hero">
-                <div className="res-label">Your annual premium — Cambodia</div>
-                <div className="res-amount">${result.total_annual_premium?.toLocaleString()}</div>
-                <div className="res-monthly">${result.total_monthly_premium}/month · Family of {result.family_size}</div>
+                <div className="res-label">Indicative premium — Cambodia</div>
+                <div className="res-amount">
+                  ${band.monthly.low}–${band.monthly.high}
+                  <span style={{ fontSize: "0.48em", verticalAlign: "middle", marginLeft: 4, fontWeight: 400, opacity: 0.8 }}>/mo</span>
+                </div>
+                <div className="res-monthly">
+                  ${band.annual.low.toLocaleString()}–${band.annual.high.toLocaleString()}/yr · Family of {result.family_size}
+                </div>
                 <div className="res-tier">
                   {result.ipd_tier} tier{Object.keys(result.riders || {}).length > 0 && ` + ${Object.keys(result.riders).join(", ")}`}
+                </div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                  Indicative range · Exact premium confirmed at policy issuance
                 </div>
               </div>
 
@@ -1111,30 +1141,27 @@ export default function PricingWizard() {
                 </div>
               )}
 
+              {/* Coverage breakdown */}
               <div className="card">
-                {/* IPD Core */}
                 <div className="bk-section">
                   <div className="bk-head"><span className="bk-badge core">IPD</span> Hospital reimbursement</div>
                   {result.ipd_core?.deductible_credit > 0 && <div className="bk-row"><span className="bk-l">Deductible credit</span><span className="bk-v" style={{ color: "var(--ok)" }}>-${result.ipd_core.deductible_credit}</span></div>}
-                  <div className="bk-row" style={{ fontWeight: 600 }}><span className="bk-l" style={{ fontWeight: 600 }}>IPD premium</span><span className="bk-v hi">${result.ipd_core?.annual_premium?.toLocaleString()}/yr</span></div>
+                  <div className="bk-row" style={{ fontWeight: 600 }}><span className="bk-l" style={{ fontWeight: 600 }}>IPD component</span><span className="bk-v hi">{Math.round(result.ipd_core?.annual_premium / result.total_annual_premium * 100)}% of total</span></div>
                 </div>
 
-                {/* Riders */}
                 {Object.entries(result.riders || {}).map(([k, v]) => (
                   <div className="bk-section" key={k} style={{ paddingTop: 12, borderTop: "1px solid var(--surf3)" }}>
                     <div className="bk-head"><span className="bk-badge rider">{k.toUpperCase()}</span> {v.name}</div>
-                    <div className="bk-row" style={{ fontWeight: 600 }}><span className="bk-l" style={{ fontWeight: 600 }}>Rider premium</span><span className="bk-v gold">${v.annual_premium?.toLocaleString()}/yr</span></div>
+                    <div className="bk-row" style={{ fontWeight: 600 }}><span className="bk-l" style={{ fontWeight: 600 }}>Rider component</span><span className="bk-v gold">{Math.round(v.annual_premium / result.total_annual_premium * 100)}% of total</span></div>
                   </div>
                 ))}
 
-                {/* Family */}
                 {result.family_size > 1 && (
                   <div className="bk-row" style={{ paddingTop: 12, borderTop: "1px solid var(--surf3)" }}>
                     <span className="bk-l">Family ({result.family_size})</span><span className="bk-v">{result.family_factor}x</span>
                   </div>
                 )}
 
-                {/* Benefits */}
                 <div className="bk-section" style={{ paddingTop: 12, borderTop: "1px solid var(--surf3)" }}>
                   <div className="bk-head">{result.ipd_tier} benefits</div>
                   <div className="bk-row"><span className="bk-l">Limit</span><span className="bk-v">{TIERS[result.ipd_tier]?.limit}</span></div>
@@ -1144,20 +1171,54 @@ export default function PricingWizard() {
                   <div className="bk-row"><span className="bk-l">Deductible</span><span className="bk-v">{TIERS[result.ipd_tier]?.ded}</span></div>
                 </div>
 
-                <div className="qid">
-                  <span>Quote ID</span><code>{result.quote_id}</code>
-                </div>
-                <div className="qid" style={{ marginTop: 4 }}>
-                  <span>Model version</span><code>{result.model_version || "local"}</code>
-                </div>
+                <div className="qid"><span>Quote ID</span><code>{result.quote_id}</code></div>
+                <div className="qid" style={{ marginTop: 4 }}><span>Model version</span><code>{result.model_version || "local"}</code></div>
                 <div style={{ marginTop: 10, padding: "6px 10px", borderRadius: 6, background: "var(--surf2)", display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--txt3)" }}>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   Quote logged to audit trail · {new Date().toLocaleString()}
                 </div>
+                <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 6, background: "var(--surf2)", fontSize: 11, color: "var(--txt3)", lineHeight: 1.6 }}>
+                  ℹ The breakdown above shows relative coverage composition. Your exact premium is personalised to your 20+ risk factors and confirmed in writing at policy issuance.
+                </div>
                 {isLocal && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fef3c7", color: "#92400e", fontSize: 11 }}>⚠ Local calculation (simplified factor model) — ML backend unavailable. This estimate may differ from the actuarial model result once connectivity is restored.</div>}
               </div>
 
-              <div className="btn-row">
+              {/* Value stack — product & service differentiation */}
+              <div className="card" style={{ marginTop: 14 }}>
+                <div className="card-label">Why customers choose DAC</div>
+                {[
+                  ["Personalised underwriting", "Your rate is built from 20+ health and lifestyle factors — not a one-size table"],
+                  ["Direct hospital billing", "Present your e-card at admission — no upfront payment at partner hospitals"],
+                  ["Fast claims", "Dedicated case manager assigned from first admission notice"],
+                  ["Bilingual support", "Khmer & English assistance available throughout your policy"],
+                  ["Flexible coverage", "Add or remove OPD, Dental, and Maternity riders as your needs change"],
+                ].map(([title, desc]) => (
+                  <div key={title} style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "flex-start" }}>
+                    <div style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="3.5"><polyline points="20,6 9,17 4,12"/></svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--txt1)" }}>{title}</div>
+                      <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 1 }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Agent CTA — converts indicative quote to confirmed policy */}
+              <div className="card" style={{ textAlign: "center", padding: "20px 16px", background: "linear-gradient(135deg, var(--navy) 0%, #16213e 100%)", border: "1px solid rgba(245,197,99,0.4)" }}>
+                <div style={{ color: "var(--gold)", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Lock in your exact rate</div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 16, lineHeight: 1.6 }}>
+                  A DAC advisor will review your profile, confirm your premium, explain any exclusions, and arrange coverage — typically within one business day.
+                </div>
+                <a className="btn btn-gold" style={{ maxWidth: 260, margin: "0 auto", display: "block", textDecoration: "none" }}
+                  href={`mailto:hello@dac-health.com?subject=Quote confirmation — ${result.quote_id}&body=Hi, I would like to confirm my health insurance quote.%0A%0AQuote ID: ${result.quote_id}%0ATier: ${result.ipd_tier}%0A%0APlease contact me to proceed.`}>
+                  Request a callback →
+                </a>
+                <div style={{ marginTop: 10, fontSize: 10, color: "rgba(255,255,255,0.35)" }}>Quote ID {result.quote_id} · valid 30 days</div>
+              </div>
+
+              <div className="btn-row" style={{ marginTop: 14 }}>
                 <button className="btn btn-back" onClick={() => setStep(3)}>Modify plan</button>
                 <button className="btn btn-next" onClick={() => { setStep(0); setResult(null); }}>New quote</button>
               </div>
@@ -1165,7 +1226,8 @@ export default function PricingWizard() {
                 Use the AI advisor (bottom-right) to explore plan options and recalculate
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
         )}
 
