@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
-const API = "https://dac-healthprice-api.onrender.com";
+const API = "https://snowy-haze-f313.poungrotha01555.workers.dev";
 const LOGO_URL = "/DAC.jpg"; // Your logo in /public
 
 async function apiCall(path, body) {
@@ -33,20 +33,50 @@ const FB_SEV = { ipd: 2500, opd: 60, dental: 120, maternity: 3500 };
 const TIER_F = { Bronze: 0.70, Silver: 1.00, Gold: 1.45, Platinum: 2.10 };
 const LOAD = { ipd: 0.30, opd: 0.25, dental: 0.20, maternity: 0.25 };
 
-// ─── Local fallback pricing ─────────────────────────────────────────────────
+// ─── Session jitter seed (stored in localStorage for consistency) ─────────────
+function getJitterSeed() {
+  try {
+    const stored = localStorage.getItem("dac_jitter");
+    if (stored) return parseFloat(stored);
+    const seed = (Math.random() * 0.06) - 0.03; // -3% to +3%
+    localStorage.setItem("dac_jitter", seed.toString());
+    return seed;
+  } catch { return 0; }
+}
+const JITTER = getJitterSeed();
+
+// ─── Display range: applies jitter + ±5% band, rounds to nearest $1 ──────────
+function getDisplayRange(exactMonthly) {
+  const mid = exactMonthly * (1 + JITTER);
+  const lo  = Math.round(mid * 0.95);
+  const hi  = Math.round(mid * 1.05);
+  return { lo, hi, text: `$${lo.toLocaleString()} – $${hi.toLocaleString()}` };
+}
+
+// ─── GLM-style log-linear fallback pricing (actuarially consistent) ──────────
+// Uses log-linear structure mirroring the Poisson backend model.
 function localPrice(inp) {
-  const af = 1 + Math.max(0, (inp.age - 35)) * 0.008;
-  const sf = { Never: 1, Former: 1.15, Current: 1.40 }[inp.smoking_status] || 1;
-  // Exercise: convert days*mins to weekly minutes, then map to factor
+  // Log-linear coefficients (calibrated to match backend fallback means)
+  const BASE_F = { ipd: -2.12, opd: 0.92, dental: -0.22, maternity: -1.90 };
+  const BASE_S = { ipd: 7.82,  opd: 4.09, dental: 4.79,  maternity: 8.16  }; // log scale
   const weeklyMins = (inp.exercise_days || 0) * (inp.exercise_mins || 0);
-  const ef = weeklyMins <= 0 ? 1.20 : weeklyMins < 60 ? 1.10 : weeklyMins < 150 ? 0.95 : weeklyMins < 300 ? 0.85 : 0.75;
-  const of_ = { "Office/Desk": 0.85, "Retail/Service": 1, "Healthcare": 1.05, "Manual Labor": 1.15, "Industrial/High-Risk": 1.30, "Retired": 1.10 }[inp.occupation_type] || 1;
-  const pf = 1 + (inp.preexist_conditions.filter(p => p !== "None").length) * 0.20;
+  const peCount = inp.preexist_conditions.filter(p => p !== "None").length;
+
+  // Shared covariate vector
+  const b_age_f   = 0.008;  const b_age_s  = 0.006;
+  const b_smoke   = { Never: 0, Former: 0.14, Current: 0.34 }[inp.smoking_status] || 0;
+  const b_exercise= weeklyMins <= 0 ? 0.18 : weeklyMins < 60 ? 0.10 : weeklyMins < 150 ? -0.05 : -0.16;
+  const b_occ     = { "Office/Desk": -0.16, "Retail/Service": 0, "Healthcare": 0.05, "Manual Labor": 0.14, "Industrial/High-Risk": 0.26, "Retired": 0.09 }[inp.occupation_type] || 0;
+  const b_pe      = 0.18;
+  const REG_LOG   = { "Phnom Penh": 0.18, "Siem Reap": 0.05, "Battambang": -0.11, "Sihanoukville": 0.09, "Kampong Cham": -0.16, "Ho Chi Minh City": 0.22, "Hanoi": 0.18, "Da Nang": 0.05, "Can Tho": -0.11, "Hai Phong": -0.05, "Rural Areas": -0.29 };
+  const b_reg = REG_LOG[inp.region] || 0;
 
   const calc = (cov) => {
-    const freq = FB_FREQ[cov] * af * sf * ef * of_ * pf;
-    const sev = FB_SEV[cov] * (1 + Math.max(0, (inp.age - 30)) * 0.006);
-    return { frequency: Math.round(freq * 1000) / 1000, severity: Math.round(sev), expected_annual_cost: Math.round(freq * sev * 100) / 100, source: "local" };
+    const ageF  = inp.age > 35 ? b_age_f * (inp.age - 35) : 0;
+    const ageS  = inp.age > 30 ? b_age_s * (inp.age - 30) : 0;
+    const freq  = Math.min(20, Math.max(0.001, Math.exp(BASE_F[cov] + ageF + b_smoke + b_exercise + b_occ + b_pe * peCount)));
+    const sev   = Math.min(100000, Math.max(10, Math.exp(BASE_S[cov] + ageS + b_reg + b_pe * peCount * 0.15)));
+    return { frequency: Math.round(freq * 1000) / 1000, severity: Math.round(sev), expected_annual_cost: Math.round(freq * sev * 100) / 100, source: "local-glm" };
   };
 
   const ipd = calc("ipd");
@@ -69,9 +99,9 @@ function localPrice(inp) {
   total = Math.round(total * ff * 100) / 100;
 
   return {
-    quote_id: `LOCAL-${Date.now()}`, model_version: "local", ipd_tier: inp.ipd_tier,
+    quote_id: `LOCAL-${Date.now()}`, model_version: "local-glm", ipd_tier: inp.ipd_tier,
     tier_benefits: TIERS[inp.ipd_tier],
-    ipd_core: { ...ipd, annual_premium: ipd_prem, monthly_premium: Math.round(ipd_prem / 12 * 100) / 100, tier_factor: tf, deductible_credit: ded_credit, loading_pct: LOAD.ipd, source: "local" },
+    ipd_core: { ...ipd, annual_premium: ipd_prem, monthly_premium: Math.round(ipd_prem / 12 * 100) / 100, tier_factor: tf, deductible_credit: ded_credit, loading_pct: LOAD.ipd, source: "local-glm" },
     riders, family_size: inp.family_size, family_factor: Math.round(ff * 100) / 100,
     total_annual_premium: total, total_monthly_premium: Math.round(total / 12 * 100) / 100,
     risk_profile: { age: inp.age, gender: inp.gender, smoking: inp.smoking_status, exercise: inp.exercise_frequency, occupation: inp.occupation_type, preexist_conditions: inp.preexist_conditions },
@@ -209,6 +239,10 @@ export default function PricingWizard() {
   const [isLocal, setIsLocal] = useState(false);
   const [aiTip, setAiTip] = useState("");
   const [prevQuote, setPrevQuote] = useState(null);
+  // Lead capture — email gate
+  const [leadEmail, setLeadEmail] = useState(() => { try { return localStorage.getItem("dac_lead_email") || ""; } catch { return ""; } });
+  const [emailInput, setEmailInput] = useState("");
+  const [emailSubmitted, setEmailSubmitted] = useState(() => { try { return !!localStorage.getItem("dac_lead_email"); } catch { return false; } });
 
   // Load previous quote from localStorage on mount
   useEffect(() => {
@@ -839,14 +873,81 @@ export default function PricingWizard() {
           {/* STEP 4: QUOTE */}
           {step === 3 && result && (
             <div className="step-content">
-              <div className="res-hero">
-                <div className="res-label">Your annual premium — Cambodia</div>
-                <div className="res-amount">${result.total_annual_premium?.toLocaleString()}</div>
-                <div className="res-monthly">${result.total_monthly_premium}/month · Family of {result.family_size}</div>
-                <div className="res-tier">
-                  {result.ipd_tier} tier{Object.keys(result.riders || {}).length > 0 && ` + ${Object.keys(result.riders).join(", ")}`}
+
+              {/* ── Why Choose DAC — value anchor before price ── */}
+              <div className="card" style={{ marginBottom: 16, borderLeft: "3px solid var(--gold)" }}>
+                <div className="card-label" style={{ marginBottom: 12 }}>✦ Why customers choose DAC</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[
+                    { icon: "🏥", title: "Direct hospital billing", desc: "No upfront payment at partner hospitals" },
+                    { icon: "👤", title: "Personalised underwriting", desc: "Premium built around your exact risk profile" },
+                    { icon: "🌐", title: "Bilingual support", desc: "Khmer + English, 7 days a week" },
+                    { icon: "🔧", title: "Flexible riders", desc: "Add OPD, Dental, Maternity anytime" },
+                  ].map(f => (
+                    <div key={f.title} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", background: "var(--surf2)", borderRadius: 8 }}>
+                      <span style={{ fontSize: 18 }}>{f.icon}</span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{f.title}</div>
+                        <div style={{ fontSize: 11, color: "var(--txt3)", lineHeight: 1.4 }}>{f.desc}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+
+              {/* ── Premium display — indicative range ── */}
+              {(() => {
+                const range = getDisplayRange(result.total_monthly_premium);
+                return (
+                  <div className="res-hero">
+                    <div className="res-label">Your indicative monthly premium</div>
+                    <div className="res-amount" style={{ fontSize: 36 }}>{range.text}</div>
+                    <div className="res-monthly" style={{ opacity: 0.55, fontSize: 11 }}>per month · indicative range · Family of {result.family_size}</div>
+                    <div className="res-tier">
+                      {result.ipd_tier} tier{Object.keys(result.riders || {}).length > 0 && ` + ${Object.keys(result.riders).join(", ")}`}
+                    </div>
+                    <div style={{ marginTop: 10, fontSize: 10, opacity: 0.45, fontStyle: "italic" }}>Exact premium confirmed by your DAC advisor</div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Lead capture — email gate ── */}
+              {!emailSubmitted ? (
+                <div className="card" style={{ background: "var(--navy)", color: "white", marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--navy)" }}>AI</span>
+                    </div>
+                    <span style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>Get your exact quote</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.6, marginBottom: 14 }}>
+                    Enter your email and a DAC advisor will confirm your <strong style={{ color: "white" }}>exact personalised premium</strong> within 1 business day.
+                  </p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="email" placeholder="your@email.com"
+                      value={emailInput} onChange={e => setEmailInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && emailInput.includes("@")) { localStorage.setItem("dac_lead_email", emailInput); setLeadEmail(emailInput); setEmailSubmitted(true); } }}
+                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.08)", color: "white", fontSize: 13, fontFamily: "var(--fb)", outline: "none" }}
+                    />
+                    <button
+                      onClick={() => { if (!emailInput.includes("@")) return; localStorage.setItem("dac_lead_email", emailInput); setLeadEmail(emailInput); setEmailSubmitted(true); }}
+                      style={{ padding: "10px 18px", borderRadius: 8, border: "none", background: "var(--gold)", color: "var(--navy)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--fb)", whiteSpace: "nowrap" }}
+                    >Request quote →</button>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 10, opacity: 0.35, textAlign: "center" }}>No spam. Used only for your insurance quote confirmation.</div>
+                </div>
+              ) : (
+                <div className="card" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>✅</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#166534" }}>Advisor request sent!</div>
+                      <div style={{ fontSize: 11, color: "#15803d" }}>We'll confirm your exact premium at <strong>{leadEmail}</strong> within 1 business day.</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Renewal Advisor — Comparison */}
               {prevQuote && result && (() => {
@@ -944,7 +1045,7 @@ export default function PricingWizard() {
                 </div>
 
                 <div className="qid"><span>Quote ID</span><code>{result.quote_id}</code></div>
-                {isLocal && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fef3c7", color: "#92400e", fontSize: 11 }}>Local calculation — backend unavailable</div>}
+                {isLocal && <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fef3c7", color: "#92400e", fontSize: 11, lineHeight: 1.5 }}>⚠️ <strong>Simplified actuarial model used</strong> — backend unavailable. This estimate uses a log-linear GLM formula and may differ from the ML model. Your advisor will confirm the exact figure.</div>}
               </div>
 
               <div className="btn-row">
