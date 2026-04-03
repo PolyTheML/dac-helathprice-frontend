@@ -1147,24 +1147,20 @@ export default function PricingWizard() {
 
           {/* STEP 6: QUOTE */}
           {step === 5 && result && (() => {
-            const band = priceBand(result.total_annual_premium, getBrowserId());
             return (
             <div className="step-content">
-              {/* Hero — shows range, not exact price */}
+              {/* Hero — exact premium */}
               <div className="res-hero">
-                <div className="res-label">Indicative premium — Cambodia</div>
+                <div className="res-label">Annual premium — Cambodia</div>
                 <div className="res-amount">
-                  ${band.monthly.low}–${band.monthly.high}
+                  ${Math.round(result.total_monthly_premium).toLocaleString()}
                   <span style={{ fontSize: "0.48em", verticalAlign: "middle", marginLeft: 4, fontWeight: 400, opacity: 0.8 }}>/mo</span>
                 </div>
                 <div className="res-monthly">
-                  ${band.annual.low.toLocaleString()}–${band.annual.high.toLocaleString()}/yr · Family of {result.family_size}
+                  ${result.total_annual_premium.toLocaleString()}/yr · Family of {result.family_size}
                 </div>
                 <div className="res-tier">
                   {result.ipd_tier} tier{Object.keys(result.riders || {}).length > 0 && ` + ${Object.keys(result.riders).join(", ")}`}
-                </div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 8, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                  Indicative range · Exact premium confirmed at policy issuance
                 </div>
               </div>
 

@@ -5,6 +5,66 @@ import InsuranceDashboard from "./InsuranceDashboard";
 
 const API_URL = "https://dac-healthprice-api.onrender.com";
 
+// ─── Internal users ──────────────────────────────────────────────────────────
+const USERS = [
+  { username: "admin",   password: "dac2026!" },
+  { username: "radet",   password: "dac2026!" },
+  { username: "analyst", password: "dac2026!" },
+];
+
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const match = USERS.find(u => u.username === username.trim().toLowerCase() && u.password === password);
+    if (match) {
+      sessionStorage.setItem("dac_authed", "1");
+      onLogin();
+    } else {
+      setError("Invalid credentials.");
+      setPassword("");
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: `linear-gradient(135deg, #0d2b7a 0%, #091d5e 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      <div style={{ background: "#fff", borderRadius: 16, padding: "48px 40px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.3)" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <img src="/DAC.png" alt="DAC" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 12 }} />
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#0d2b7a" }}>DAC <span style={{ color: "#f5a623" }}>HealthPrice</span></div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Internal portal — staff access only</div>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Username</label>
+            <input
+              type="text" value={username} onChange={e => setUsername(e.target.value)} autoComplete="username"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+              placeholder="Enter username"
+            />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Password</label>
+            <input
+              type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+              placeholder="Enter password"
+            />
+          </div>
+          {error && <div style={{ fontSize: 13, color: "#ef4444", marginBottom: 16, textAlign: "center" }}>{error}</div>}
+          <button type="submit" style={{ width: "100%", padding: "12px", borderRadius: 8, background: "#f5a623", color: "#0d2b7a", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            Sign in
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 const NAVY = "#0d2b7a";
 const NAVY_D = "#091d5e";
 const NAVY_L = "#1a4fba";
@@ -67,12 +127,15 @@ export default function App() {
   const [page, setPage] = useState("Home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem("dac_authed") === "1");
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", h, { passive: true });
     return () => window.removeEventListener("scroll", h);
   }, []);
+
+  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />;
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", color: TXT, background: WHITE, minHeight: "100vh" }}>
@@ -142,6 +205,7 @@ export default function App() {
               {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
             </div>
             <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("Pricing"); window.scrollTo(0,0); }}>Get a quote</button>
+            <button className="outline-btn" style={{ padding:"8px 20px", fontSize:13 }} onClick={() => { sessionStorage.removeItem("dac_authed"); setAuthed(false); }}>Sign out</button>
           </div>
           {/* Hamburger */}
           <button className={`hamburger ${menuOpen?"open":""}`} onClick={() => setMenuOpen(o => !o)} aria-label="Toggle menu">
