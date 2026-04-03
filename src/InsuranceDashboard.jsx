@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const API_URL      = "https://snowy-haze-f313.poungrotha01555.workers.dev";
+const API_URL      = "https://dac-healthprice-api.onrender.com";
 const NAVY         = "#0d2b7a";
 const GOLD         = "#f5a623";
 const GOLD_D       = "#e67e00";
