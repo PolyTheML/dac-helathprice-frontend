@@ -1192,6 +1192,8 @@ const TOOLS = [
 const RIDER_NAMES = { include_opd: "OPD", include_dental: "Dental", include_maternity: "Maternity" };
 const STEP_NAMES = ["Personal info", "Health info", "Lifestyle", "Plan selection", "Review & confirm", "Quote result"];
 
+const CHAT_BACKEND = "https://backend-5frr.onrender.com";
+
 function AIChat({ inp, result, sessionToken, onSwitchTier, onToggleRider, onCalculateWith, onGoToStep }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([
@@ -1201,6 +1203,15 @@ function AIChat({ inp, result, sessionToken, onSwitchTier, onToggleRider, onCalc
   const [thinking, setThinking] = useState(false);
   const apiMsgs = useRef([]);      // Claude conversation history (separate from display)
   const pendingChanges = useRef({}); // tracks in-flight state changes during tool loop
+  const warmedUp = useRef(false);
+
+  // Warm up backend the moment chat opens (prevents Render cold-start timeout)
+  useEffect(() => {
+    if (open && !warmedUp.current) {
+      warmedUp.current = true;
+      fetch(`${CHAT_BACKEND}/health`, { signal: AbortSignal.timeout(60000) }).catch(() => { });
+    }
+  }, [open]);
 
   const scroll = () => setTimeout(() => {
     const el = document.getElementById("ai-m");
@@ -1274,11 +1285,10 @@ function AIChat({ inp, result, sessionToken, onSwitchTier, onToggleRider, onCalc
       let iterations = 0;
       while (iterations < 5) {
         iterations++;
-        const r = await fetch("https://backend-5frr.onrender.com/api/v2/chat", {
+        const r = await fetch(`${CHAT_BACKEND}/api/v2/chat`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(90000),
           body: JSON.stringify({
             model: "claude-sonnet-4-5",
             max_tokens: 800,
