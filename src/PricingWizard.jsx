@@ -132,7 +132,7 @@ function priceBand(annualPremium, browserId) {
   const B = 0.07; // ±7 % display band
   return {
     monthly: { low: Math.floor(mid * (1 - B) / 12), high: Math.ceil(mid * (1 + B) / 12) },
-    annual:  { low: Math.floor(mid * (1 - B)),       high: Math.ceil(mid * (1 + B)) },
+    annual: { low: Math.floor(mid * (1 - B)), high: Math.ceil(mid * (1 + B)) },
   };
 }
 
@@ -1274,7 +1274,7 @@ function AIChat({ inp, result, sessionToken, onSwitchTier, onToggleRider, onCalc
       let iterations = 0;
       while (iterations < 5) {
         iterations++;
-        const r = await fetch("https://dac-healthprice-api.onrender.com/api/v2/chat", {
+        const r = await fetch("https://backend-5frr.onrender.com/api/v2/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
