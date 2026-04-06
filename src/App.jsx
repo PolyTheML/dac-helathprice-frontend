@@ -1,12 +1,76 @@
 import { useState, useEffect, useRef } from "react";
 import PricingWizard from "./PricingWizard";
+import InsuranceDashboard from "./InsuranceDashboard";
+import AutoPricingLab from "./AutoPricingLab";
 
 
-const NAVY = "#1a1a2e";
-const NAVY_D = "#0f0f1e";
-const NAVY_L = "#2d2d44";
-const GOLD = "#f5c563";
-const GOLD_D = "#d4a843";
+const API_URL = "https://dac-healthprice-api.onrender.com";
+
+// ─── Internal users ──────────────────────────────────────────────────────────
+const USERS = [
+  { username: "admin",   password: "dac2026!" },
+  { username: "radet",   password: "dac2026!" },
+  { username: "analyst", password: "dac2026!" },
+];
+
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const match = USERS.find(u => u.username === username.trim().toLowerCase() && u.password === password);
+    if (match) {
+      sessionStorage.setItem("dac_authed", "1");
+      onLogin();
+    } else {
+      setError("Invalid credentials.");
+      setPassword("");
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: `linear-gradient(135deg, #0d2b7a 0%, #091d5e 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      <div style={{ background: "#fff", borderRadius: 16, padding: "48px 40px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.3)" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <img src="/DAC.png" alt="DAC" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 12 }} />
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#0d2b7a" }}>DAC <span style={{ color: "#f5a623" }}>HealthPrice</span></div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Internal portal — staff access only</div>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Username</label>
+            <input
+              type="text" value={username} onChange={e => setUsername(e.target.value)} autoComplete="username"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+              placeholder="Enter username"
+            />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Password</label>
+            <input
+              type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+              placeholder="Enter password"
+            />
+          </div>
+          {error && <div style={{ fontSize: 13, color: "#ef4444", marginBottom: 16, textAlign: "center" }}>{error}</div>}
+          <button type="submit" style={{ width: "100%", padding: "12px", borderRadius: 8, background: "#f5a623", color: "#0d2b7a", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            Sign in
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+const NAVY = "#0d2b7a";
+const NAVY_D = "#091d5e";
+const NAVY_L = "#1a4fba";
+const GOLD = "#f5a623";
+const GOLD_D = "#e67e00";
 const WHITE = "#ffffff";
 const GRAY = "#94a3b8";
 const LTGRAY = "#f1f3f5";
@@ -64,12 +128,15 @@ export default function App() {
   const [page, setPage] = useState("Home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem("dac_authed") === "1");
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", h, { passive: true });
     return () => window.removeEventListener("scroll", h);
   }, []);
+
+  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />;
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", color: TXT, background: WHITE, minHeight: "100vh" }}>
@@ -105,7 +172,7 @@ export default function App() {
         .hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; position:relative; z-index:1; }
         .hero-inner { padding:80px 24px; }
         .grid-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:32px; text-align:center; }
-        .grid-how { display:grid; grid-template-columns:repeat(3,1fr); gap:40px; }
+        .grid-how { display:grid; grid-template-columns:repeat(4,1fr); gap:32px; }
         .grid-features { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; }
         @media (max-width:768px) {
           .hamburger { display:flex; }
@@ -130,7 +197,7 @@ export default function App() {
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px", display:"flex", alignItems:"center", justifyContent:"space-between", height:72 }}>
           {/* Logo */}
           <div style={{ display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={() => setPage("Home")}>
-            <div style={{ width:40, height:40, background:GOLD, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, color:NAVY, fontSize:16 }}>D</div>
+            <img src="/DAC.png" alt="DAC" style={{ width:120, height:120, objectFit:"contain" }} />
             <span style={{ color:WHITE, fontSize:20, fontWeight:700, letterSpacing:-0.5 }}>DAC <span style={{ color:GOLD }}>HealthPrice</span></span>
           </div>
           {/* Desktop nav */}
@@ -139,6 +206,7 @@ export default function App() {
               {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
             </div>
             <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("Pricing"); window.scrollTo(0,0); }}>Get a quote</button>
+            <button className="outline-btn" style={{ padding:"8px 20px", fontSize:13 }} onClick={() => { sessionStorage.removeItem("dac_authed"); setAuthed(false); }}>Sign out</button>
           </div>
           {/* Hamburger */}
           <button className={`hamburger ${menuOpen?"open":""}`} onClick={() => setMenuOpen(o => !o)} aria-label="Toggle menu">
@@ -157,7 +225,8 @@ export default function App() {
       {page === "Pricing" && <PricingPage />}
       {page === "About" && <AboutPage />}
       {page === "Contact" && <ContactPage />}
-      {page === "Admin" && <AdminPage />}
+      {page === "Admin" && <InsuranceDashboard />}
+      {page === "AutoLab" && <AutoPricingLab />}
 
       {/* ═══ FOOTER ═══ */}
       <footer style={{ background: NAVY_D, color: GRAY, padding: "64px 24px 32px" }}>
@@ -165,7 +234,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 40, marginBottom: 48 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, background: GOLD, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: NAVY, fontSize: 14 }}>D</div>
+                <img src="/DAC.png" alt="DAC" style={{ width: 96, height: 96, objectFit: "contain" }} />
                 <span style={{ color: WHITE, fontSize: 18, fontWeight: 700 }}>DAC HealthPrice</span>
               </div>
               <p style={{ fontSize: 14, lineHeight: 1.7 }}>AI-powered health insurance pricing for Cambodia's emerging market.</p>
@@ -182,6 +251,7 @@ export default function App() {
                 { label: "Get a Quote", go: "Pricing" },
               ].map(s => <p key={s.label} onClick={() => { setPage(s.go); window.scrollTo(0,0); }} style={{ fontSize: 14, marginBottom: 10, cursor: "pointer" }}>{s.label}</p>)}
               <p onClick={() => { setPage("Admin"); window.scrollTo(0,0); }} style={{ fontSize: 12, marginTop: 16, cursor: "pointer", opacity: 0.4 }}>Admin portal</p>
+              <p onClick={() => { setPage("AutoLab"); window.scrollTo(0,0); }} style={{ fontSize: 12, marginTop: 6, cursor: "pointer", opacity: 0.4 }}>Auto Pricing Lab</p>
             </div>
             <div>
               <h4 style={{ color: WHITE, fontSize: 14, fontWeight: 600, marginBottom: 16, textTransform: "uppercase", letterSpacing: 1 }}>Contact</h4>
@@ -204,6 +274,41 @@ export default function App() {
 // HOME PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 function HomePage({ onGetQuote }) {
+  const [sampleQuote, setSampleQuote] = useState(null);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const sRes = await fetch(`${API_URL}/api/v2/session`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "demo@dactuaries.com", browser_id: "homepage-demo" }),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!sRes.ok) return;
+        const { token } = await sRes.json();
+        const pRes = await fetch(`${API_URL}/api/v2/price`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Session-Token": token },
+          body: JSON.stringify({
+            age: 35, gender: "Male", country: "cambodia", region: "Phnom Penh",
+            smoking_status: "Never", exercise_frequency: "Moderate",
+            occupation_type: "Office/Desk", preexist_conditions: ["None"],
+            ipd_tier: "Silver", family_size: 1,
+            include_opd: false, include_dental: false, include_maternity: false,
+            browser_id: "homepage-demo", email: "demo@dactuaries.com",
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!pRes.ok) return;
+        setSampleQuote(await pRes.json());
+      } catch { /* keep static fallback */ }
+    };
+    run();
+  }, []);
+
+  const monthly = sampleQuote ? Math.round(sampleQuote.total_monthly_premium) : null;
+  const annual  = sampleQuote ? sampleQuote.total_annual_premium : null;
+
   return (
     <>
       {/* ═══ HERO ═══ */}
@@ -251,10 +356,15 @@ function HomePage({ onGetQuote }) {
           {/* Hero right — Stats cards */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}>
             <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, border: "1px solid rgba(255,255,255,0.08)", padding: 32, width: "100%", maxWidth: 420, backdropFilter: "blur(12px)" }}>
-              <p style={{ color: GRAY, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Sample quote — 35M, Non-smoker</p>
+              <p style={{ color: GRAY, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                Sample quote — 35M, Non-smoker{sampleQuote ? " · Live" : ""}
+              </p>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
-                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, fontWeight: 700, color: GOLD }}>$25</span>
+                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, fontWeight: 700, color: GOLD }}>
+                  {monthly !== null ? `$${monthly}` : "$—"}
+                </span>
                 <span style={{ color: GRAY, fontSize: 16 }}>/month</span>
+                {annual && <span style={{ color: GRAY, fontSize: 12, opacity: 0.7 }}>(${annual.toLocaleString()}/yr)</span>}
               </div>
               <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
                 {["Bronze", "Silver", "Gold", "Platinum"].map((t, i) => (
@@ -321,9 +431,10 @@ function HomePage({ onGetQuote }) {
           </FadeIn>
           <div className="grid-how">
             {[
-              { step: "01", title: "Tell us about you", desc: "Enter your age, health habits, occupation, and region in our guided step-by-step wizard. Takes under 2 minutes.", icon: "👤" },
-              { step: "02", title: "AI picks your plan", desc: "Our frequency-severity models calculate your risk profile. The AI recommends your optimal tier — Bronze, Silver, Gold, or Platinum.", icon: "🤖" },
-              { step: "03", title: "See your quote", desc: "Get a transparent premium breakdown showing claim frequency, severity, loading, and deductible credit. Ask the AI chatbot for advice.", icon: "💰" },
+              { step: "01", title: "Tell us about you", desc: "Enter your age, health history, lifestyle, and region across three short screens. The guided wizard takes under 2 minutes.", icon: "👤" },
+              { step: "02", title: "Choose your cover", desc: "Pick your IPD tier — Bronze, Silver, Gold, or Platinum — and add optional OPD, Dental, or Maternity riders to suit your needs.", icon: "🛡️" },
+              { step: "03", title: "Underwriting review", desc: "Our rule engine instantly assesses your risk profile. Pre-existing conditions and lifestyle factors are flagged transparently before you commit.", icon: "🔍" },
+              { step: "04", title: "Your personalised quote", desc: "Receive a live ML-priced premium breakdown — frequency, severity, and loading shown clearly. Ask the AI chatbot anything about your plan.", icon: "💰" },
             ].map((s, i) => (
               <FadeIn key={i} delay={i * 0.15}>
                 <div className="card-hover" style={{ background: WHITE, borderRadius: 16, padding: 36, border: "1px solid #e5e7eb", transition: "all 0.3s", position: "relative", overflow: "hidden" }}>
@@ -709,8 +820,8 @@ function AdminUserData({ apiKey, apiUrl }) {
     </div>
   );
  
-  const tierColors = { Bronze: "#92400e", Silver: "#475569", Gold: "#b07a0a", Platinum: "#1e40af" };
-  const tierBg = { Bronze: "#fffbeb", Silver: "#f1f3f5", Gold: "#fef9ec", Platinum: "#eff6ff" };
+  const tierColors = { Bronze: "#92400e", Silver: "#475569", Gold: "#c46800", Platinum: "#1e40af" };
+  const tierBg = { Bronze: "#fffbeb", Silver: "#f1f3f5", Gold: "#fff7ed", Platinum: "#eff6ff" };
  
   return (
     <div>
@@ -755,7 +866,7 @@ function AdminUserData({ apiKey, apiUrl }) {
           <div style={{ display: "flex", gap: 8 }}>
             {Object.entries(summary.smoking_distribution).map(([s, count]) => {
               const pct = Math.round(count / (summary.total_quotes || 1) * 100);
-              const colors = { Never: "#059669", Former: "#b07a0a", Current: "#dc2626" };
+              const colors = { Never: "#059669", Former: "#c46800", Current: "#dc2626" };
               const bgs = { Never: "#e1f5ee", Former: "#fffbeb", Current: "#fef2f2" };
               return (
                 <div key={s} style={{ flex: 1, background: bgs[s] || LTGRAY, borderRadius: 10, padding: "12px 8px", textAlign: "center" }}>
@@ -785,7 +896,7 @@ function AdminUserData({ apiKey, apiUrl }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-                {["Time", "Age", "Gender", "Region", "Smoking", "Occupation", "Conditions", "Tier", "Riders", "Family"].map(h => (
+                {["User", "Time", "Age", "Gender", "Region", "Smoking", "Occupation", "Conditions", "Tier", "Riders", "Family"].map(h => (
                   <th key={h} style={{ textAlign: "left", padding: "8px 6px", fontSize: 11, color: TXT2, fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
@@ -795,12 +906,13 @@ function AdminUserData({ apiKey, apiUrl }) {
                 const riders = [r.include_opd && "OPD", r.include_dental && "Den", r.include_maternity && "Mat"].filter(Boolean).join(", ") || "—";
                 return (
                   <tr key={i} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                    <td style={{ padding: "8px 6px", fontFamily: "monospace", fontSize: 11, color: TXT2 }} title={r.browser_id || "—"}>{r.browser_id ? r.browser_id.slice(0, 8) : "—"}</td>
                     <td style={{ padding: "8px 6px", color: TXT2, fontSize: 11 }}>{r.created_at ? new Date(r.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
                     <td style={{ padding: "8px 6px" }}>{r.age}</td>
                     <td style={{ padding: "8px 6px" }}>{r.gender}</td>
                     <td style={{ padding: "8px 6px", fontSize: 11 }}>{r.region}</td>
                     <td style={{ padding: "8px 6px" }}>
-                      <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, background: r.smoking === "Current" ? "#fef2f2" : r.smoking === "Former" ? "#fffbeb" : "#e1f5ee", color: r.smoking === "Current" ? "#dc2626" : r.smoking === "Former" ? "#b07a0a" : "#059669" }}>{r.smoking}</span>
+                      <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, background: r.smoking === "Current" ? "#fef2f2" : r.smoking === "Former" ? "#fffbeb" : "#e1f5ee", color: r.smoking === "Current" ? "#dc2626" : r.smoking === "Former" ? "#c46800" : "#059669" }}>{r.smoking}</span>
                     </td>
                     <td style={{ padding: "8px 6px", fontSize: 11 }}>{r.occupation}</td>
                     <td style={{ padding: "8px 6px" }}>{r.preexist_count || 0}</td>

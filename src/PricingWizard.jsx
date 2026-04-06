@@ -3,10 +3,19 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 const API = "https://snowy-haze-f313.poungrotha01555.workers.dev"; // Cloudflare Worker → backend-5frr.onrender.com
 const LOGO_URL = "/DAC.jpg"; // Your logo in /public
 
-async function apiCall(path, body) {
+function getBrowserId() {
+  let id = localStorage.getItem("dac_browser_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("dac_browser_id", id);
+  }
+  return id;
+}
+
+async function apiCall(path, body, extraHeaders = {}) {
   const opts = body
-    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
-    : {};
+    ? { method: "POST", headers: { "Content-Type": "application/json", ...extraHeaders }, body: JSON.stringify(body) }
+    : { headers: extraHeaders };
   const r = await fetch(`${API}${path}`, { ...opts, signal: AbortSignal.timeout(45000) });
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
@@ -27,7 +36,7 @@ const TIERS = {
   Gold: { limit: "$80,000", room: "Private Room", surg: "$40,000", icu: "14 days", ded: "$100", dedN: 100 },
   Platinum: { limit: "$150,000", room: "Private Suite", surg: "$80,000", icu: "30 days", ded: "$0", dedN: 0 },
 };
-const STEPS = ["Profile", "Health", "Plan", "Quote"];
+const STEPS = ["Profile", "Health", "Lifestyle", "Plan", "Review", "Quote"];
 const FB_FREQ = { ipd: 0.12, opd: 2.5, dental: 0.8, maternity: 0.15 };
 const FB_SEV = { ipd: 2500, opd: 60, dental: 120, maternity: 3500 };
 const TIER_F = { Bronze: 0.70, Silver: 1.00, Gold: 1.45, Platinum: 2.10 };
@@ -108,10 +117,45 @@ function localPrice(inp) {
   };
 }
 
+// ─── Price band (information-disclosure control) ────────────────────────────
+// Shows a range rather than an exact figure. The midpoint is shifted by a
+// small session-consistent jitter derived from the browser ID, so different
+// sessions produce different ranges for the same profile — preventing a
+// competitor from pinpointing the exact price with a single representative query.
+function priceBand(annualPremium, browserId) {
+  let h = 0;
+  for (let i = 0; i < Math.min(browserId.length, 16); i++) {
+    h = Math.imul(h ^ browserId.charCodeAt(i), 0x9e3779b9);
+  }
+  const jitter = ((Math.abs(h) % 601) - 300) / 10000; // ±3 %, deterministic per browser
+  const mid = annualPremium * (1 + jitter);
+  const B = 0.07; // ±7 % display band
+  return {
+    monthly: { low: Math.floor(mid * (1 - B) / 12), high: Math.ceil(mid * (1 + B) / 12) },
+    annual:  { low: Math.floor(mid * (1 - B)),       high: Math.ceil(mid * (1 + B)) },
+  };
+}
+
+// ─── Underwriting / Rule Engine ─────────────────────────────────────────────
+function checkUnderwriting(inp) {
+  const flags = [];
+  const conditions = inp.preexist_conditions.filter(c => c !== "None");
+  if (inp.age > 70) flags.push({ level: "decline", msg: "Age exceeds maximum insurable limit (70). Manual underwriting required before coverage can be offered." });
+  if (inp.age < 18) flags.push({ level: "decline", msg: "Minimum insurable age is 18. Coverage is not available for this applicant." });
+  if (conditions.includes("Cancer (remission)")) flags.push({ level: "warn", msg: "Cancer history detected: additional medical underwriting review required. Premium loading and exclusion clauses may apply." });
+  if (conditions.includes("Kidney Disease")) flags.push({ level: "warn", msg: "Kidney disease: renal-related claims may be subject to an exclusion clause. Additional loading applies." });
+  if (conditions.includes("Liver Disease")) flags.push({ level: "warn", msg: "Liver disease: hepatic-related claims may be subject to an exclusion clause. Additional loading applies." });
+  if (conditions.length >= 3) flags.push({ level: "warn", msg: `${conditions.length} pre-existing conditions declared — medical underwriting referral is recommended before binding coverage.` });
+  if (inp.smoking_status === "Current" && (conditions.includes("Heart Disease") || conditions.includes("Asthma/COPD"))) {
+    flags.push({ level: "warn", msg: "High-risk combination: current smoker with cardiovascular or respiratory condition. Significant additional loading will apply." });
+  }
+  return flags;
+}
+
 // ─── Small components ───────────────────────────────────────────────────────
-function Logo({ size = 34 }) {
-  if (LOGO_URL) return <img src={LOGO_URL} alt="DAC" style={{ width: size, height: size, borderRadius: size * 0.22, objectFit: "contain" }} />;
-  return <div style={{ width: size, height: size, borderRadius: size * 0.22, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", color: "#f5c563", fontWeight: 600, fontSize: size * 0.35 }}>DAC</div>;
+function Logo({ size = 48 }) {
+  if (LOGO_URL) return <img src={LOGO_URL} alt="DAC" style={{ width: size, height: size, objectFit: "contain" }} />;
+  return <div style={{ width: size, height: size, borderRadius: size * 0.22, background: "#0d2b7a", display: "flex", alignItems: "center", justifyContent: "center", color: "#f5a623", fontWeight: 600, fontSize: size * 0.35 }}>DAC</div>;
 }
 
 function Chev() {
@@ -129,7 +173,7 @@ function Spinner() {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=Instrument+Serif:ital@0;1&display=swap');
-:root{--navy:#1a1a2e;--navy-l:#2d2d44;--gold:#f5c563;--gold-d:#b07a0a;--gold-bg:#fef9ec;--gold-bd:#fde68a;--bg:#f7f8fa;--surf:#fff;--surf2:#f1f3f5;--surf3:#e2e5ea;--txt:#111827;--txt2:#4b5563;--txt3:#6b7280;--ok:#059669;--danger:#ef4444;--fd:'Instrument Serif',serif;--fb:'DM Sans',sans-serif;--r:12px}
+:root{--navy:#0d2b7a;--navy-l:#1a4fba;--gold:#f5a623;--gold-d:#c46800;--gold-bg:#fff7ed;--gold-bd:#fed7aa;--bg:#f7f8fa;--surf:#fff;--surf2:#f1f3f5;--surf3:#e2e5ea;--txt:#111827;--txt2:#4b5563;--txt3:#6b7280;--ok:#059669;--danger:#ef4444;--fd:'Instrument Serif',serif;--fb:'DM Sans',sans-serif;--r:12px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--txt);font-family:var(--fb);-webkit-font-smoothing:antialiased}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -224,7 +268,7 @@ input[type="range"]{height:6px;border-radius:3px;outline:none;cursor:pointer}
 .footer{padding:20px;text-align:center;font-size:11px;color:var(--txt3);border-top:1px solid var(--surf3)}
 .footer-tags{display:flex;gap:4px;justify-content:center;margin-top:4px}
 .footer-tag{padding:2px 7px;border-radius:4px;font-size:10px;background:var(--surf2);color:var(--txt3)}
-@media(max-width:640px){.row2,.row3{grid-template-columns:1fr}.tier-grid{grid-template-columns:1fr 1fr}.wizard{padding:20px 14px}.ai-panel{width:calc(100vw - 32px);right:16px;max-width:360px}.res-amount{font-size:34px}}
+@media(max-width:640px){.row2,.row3{grid-template-columns:1fr}.tier-grid{grid-template-columns:1fr 1fr}.wizard{padding:20px 14px}.ai-panel{width:calc(100vw - 32px);right:16px;max-width:360px}.res-amount{font-size:34px}.step-label{display:none}}
 @media(max-width:360px){.tier-grid{grid-template-columns:1fr}}
 `;
 
@@ -232,6 +276,7 @@ input[type="range"]{height:6px;border-radius:3px;outline:none;cursor:pointer}
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function PricingWizard() {
+  const sessionTokenRef = useRef(null);
   const [step, setStep] = useState(0);
   const [apiOk, setApiOk] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -254,11 +299,24 @@ export default function PricingWizard() {
 
   const [inp, setInp] = useState({
     age: 35, gender: "Male", country: "cambodia", region: "Phnom Penh",
+    marital_status: "Single",
     smoking_status: "Never",
     exercise_days: 3, exercise_mins: 30,
-    exercise_frequency: "Moderate", // derived from days*mins for backend
+    exercise_frequency: "Moderate",
     occupation_type: "Office/Desk",
-    preexist_conditions: ["None"], ipd_tier: "Silver", family_size: 1,
+    preexist_conditions: ["None"],
+    bmi_height: 170, bmi_weight: 70,
+    alcohol: "Never",
+    prev_hospitalizations: 0,
+    medications_count: 0,
+    family_history: ["None"],
+    diet: "Balanced",
+    sleep_quality: "Good (7-9h)",
+    stress_level: "Low",
+    motorbike_daily: "No",
+    water_access: "Piped/Safe",
+    healthcare_proximity: "<5km",
+    ipd_tier: "Silver", family_size: 1,
     include_opd: false, include_dental: false, include_maternity: false,
   });
 
@@ -299,7 +357,9 @@ export default function PricingWizard() {
     setLoading(true); setResult(null); setIsLocal(false);
     let res;
     try {
-      res = await apiCall("/api/v2/price", target);
+      const session = await apiCall("/api/v2/session", { email: "", browser_id: getBrowserId() });
+      sessionTokenRef.current = session.token;
+      res = await apiCall("/api/v2/price", { ...target, browser_id: getBrowserId() }, { "X-Session-Token": session.token });
       setResult(res);
     } catch {
       res = localPrice(target); setResult(res); setIsLocal(true);
@@ -325,6 +385,8 @@ export default function PricingWizard() {
   }, [inp]);
 
   const peCount = inp.preexist_conditions.filter(p => p !== "None").length;
+  const uwFlags = checkUnderwriting(inp);
+  const hasDecline = uwFlags.some(f => f.level === "decline");
 
   const estRider = (cov) => {
     const af = 1 + Math.max(0, (inp.age - 35)) * 0.008;
@@ -343,10 +405,10 @@ export default function PricingWizard() {
     if (peCount >= 1 || inp.age > 40) return "Silver";
     return "Silver"; // default safe choice
   };
-  const aiTier = step === 2 ? getAiRecommendedTier() : null;
+  const aiTier = step === 3 ? getAiRecommendedTier() : null;
 
   useEffect(() => {
-    if (step !== 2) { setAiTip(""); return; }
+    if (step !== 3) { setAiTip(""); return; }
     const rec = getAiRecommendedTier();
     if (rec === "Platinum") {
       setAiTip(`High-risk profile detected (${peCount} conditions${inp.smoking_status === "Current" ? ", smoker" : ""}, age ${inp.age}). <strong>Platinum</strong> gives maximum protection with $150K limit and $0 deductible.`);
@@ -383,7 +445,7 @@ export default function PricingWizard() {
           <div className="wizard" style={{ animation: "fadeIn .3s ease both", maxWidth: 680 }}>
             {/* Hero */}
             <div style={{ textAlign: "center", marginBottom: 32, paddingTop: 8 }}>
-              <Logo size={72} />
+              <Logo size={120} />
               <div style={{ fontSize: 26, fontWeight: 500, marginTop: 14, letterSpacing: -0.3 }}>About DAC HealthPrice</div>
               <div style={{ fontSize: 14, color: "var(--txt2)", marginTop: 6, lineHeight: 1.6, maxWidth: 440, margin: "6px auto 0" }}>
                 AI-powered hospital reimbursement insurance pricing for Cambodia
@@ -1061,6 +1123,7 @@ export default function PricingWizard() {
         <AIChat
           inp={inp}
           result={result}
+          sessionToken={sessionTokenRef}
           onSwitchTier={tier => u("ipd_tier", tier)}
           onToggleRider={(rider, on) => u(rider, on)}
           onCalculateWith={calculate}
@@ -1115,11 +1178,11 @@ const TOOLS = [
   },
   {
     name: "navigate_to_step",
-    description: "Navigate the wizard to a specific step. Steps: 0=Personal info, 1=Health info, 2=Plan selection, 3=Quote result.",
+    description: "Navigate the wizard to a specific step. Steps: 0=Personal info, 1=Health info, 2=Lifestyle, 3=Plan selection, 4=Quote result.",
     input_schema: {
       type: "object",
       properties: {
-        step: { type: "number", enum: [0, 1, 2, 3], description: "Step number to navigate to." }
+        step: { type: "number", enum: [0, 1, 2, 3, 4, 5], description: "Step number to navigate to. 0=Personal info, 1=Health info, 2=Lifestyle, 3=Plan selection, 4=Review & confirm, 5=Quote result." }
       },
       required: ["step"]
     }
@@ -1127,12 +1190,12 @@ const TOOLS = [
 ];
 
 const RIDER_NAMES = { include_opd: "OPD", include_dental: "Dental", include_maternity: "Maternity" };
-const STEP_NAMES = ["Personal info", "Health info", "Plan selection", "Quote result"];
+const STEP_NAMES = ["Personal info", "Health info", "Lifestyle", "Plan selection", "Review & confirm", "Quote result"];
 
-function AIChat({ inp, result, onSwitchTier, onToggleRider, onCalculateWith, onGoToStep }) {
+function AIChat({ inp, result, sessionToken, onSwitchTier, onToggleRider, onCalculateWith, onGoToStep }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([
-    { role: "bot", text: "Hi! I'm your AI advisor. I can recommend plans, explain pricing, or make changes directly — just ask." }
+    { role: "bot", text: "Hi! I'm your AI advisor. Once you have a quote, I can help you optimize your plan — switch tiers, add riders, explain your premium, or recalculate. You can also ask me questions at any step." }
   ]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -1332,6 +1395,10 @@ function AdminStatus({ apiOk, adminKey }) {
     apiCall("/api/v2/model-info").then(setInfo).catch(() => { });
   }, []);
 
+  const retrainedAt = info?.last_retrained_at
+    ? new Date(info.last_retrained_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—";
+
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
@@ -1346,6 +1413,20 @@ function AdminStatus({ apiOk, adminKey }) {
         <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 12, textAlign: "center" }}>
           <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>Models loaded</div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{info?.models?.length || 0}/8</div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10 }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>Last retrained</div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>{retrainedAt}</div>
+          {info?.training_dataset && <div style={{ fontSize: 10, color: "var(--txt3)", marginTop: 2 }}>{info.training_dataset}</div>}
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10 }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)", marginBottom: 2 }}>GLM fallback</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: info?.fallback_models_loaded ? "var(--ok)" : "var(--danger)" }}>
+            {info?.fallback_models_loaded ? "Loaded" : info === null ? "—" : "Not loaded"}
+          </div>
+          {info?.r2 !== undefined && <div style={{ fontSize: 10, color: "var(--txt3)", marginTop: 2 }}>Primary R² {info.r2}</div>}
         </div>
       </div>
       {info?.models && (
@@ -1541,8 +1622,8 @@ function AdminUserData({ adminKey }) {
     </div>
   );
 
-  const tierColors = { Bronze: "#92400e", Silver: "#475569", Gold: "#b07a0a", Platinum: "#1e40af" };
-  const tierBg = { Bronze: "#fffbeb", Silver: "#f1f3f5", Gold: "#fef9ec", Platinum: "#eff6ff" };
+  const tierColors = { Bronze: "#92400e", Silver: "#475569", Gold: "#c46800", Platinum: "#1e40af" };
+  const tierBg = { Bronze: "#fffbeb", Silver: "#f1f3f5", Gold: "#fff7ed", Platinum: "#eff6ff" };
 
   return (
     <div>
@@ -1592,7 +1673,7 @@ function AdminUserData({ adminKey }) {
           <div style={{ display: "flex", gap: 6 }}>
             {Object.entries(summary.smoking_distribution).map(([status, count]) => {
               const pct = Math.round(count / (summary.total_quotes || 1) * 100);
-              const colors = { Never: "#059669", Former: "#b07a0a", Current: "#dc2626" };
+              const colors = { Never: "#059669", Former: "#c46800", Current: "#dc2626" };
               const bgs = { Never: "#e1f5ee", Former: "#fffbeb", Current: "#fef2f2" };
               return (
                 <div key={status} style={{ flex: 1, background: bgs[status] || "var(--surf2)", borderRadius: 8, padding: "8px 6px", textAlign: "center" }}>
@@ -1640,7 +1721,7 @@ function AdminUserData({ adminKey }) {
                     <td style={{ padding: "6px" }}>{r.gender}</td>
                     <td style={{ padding: "6px", fontSize: 10 }}>{r.region}</td>
                     <td style={{ padding: "6px" }}>
-                      <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 10, background: r.smoking === "Current" ? "#fef2f2" : r.smoking === "Former" ? "#fffbeb" : "#e1f5ee", color: r.smoking === "Current" ? "#dc2626" : r.smoking === "Former" ? "#b07a0a" : "#059669" }}>{r.smoking}</span>
+                      <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 10, background: r.smoking === "Current" ? "#fef2f2" : r.smoking === "Former" ? "#fffbeb" : "#e1f5ee", color: r.smoking === "Current" ? "#dc2626" : r.smoking === "Former" ? "#c46800" : "#059669" }}>{r.smoking}</span>
                     </td>
                     <td style={{ padding: "6px", fontSize: 10 }}>{r.occupation}</td>
                     <td style={{ padding: "6px" }}>{r.preexist_count || 0}</td>
@@ -1656,6 +1737,169 @@ function AdminUserData({ adminKey }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function AdminAuditLog({ adminKey }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/api/v2/admin/audit-log`, { headers: { "X-API-Key": adminKey } });
+      setData(await r.json());
+    } catch { setData({ status: "error" }); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (!data) return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>{loading ? "Loading..." : "No data"}</div>;
+  if (data.status === "no_db") return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>Database not connected</div>;
+  if (data.status === "error") return <div style={{ fontSize: 12, color: "var(--danger)", textAlign: "center", padding: 16 }}>Failed to load audit log</div>;
+
+  const { summary = {}, records = [] } = data;
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Total quotes</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{summary.total_quotes ?? records.length}</div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Fallback rate</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: (summary.fallback_rate ?? 0) > 20 ? "#dc2626" : "var(--txt)" }}>
+            {summary.fallback_rate ?? "—"}%
+          </div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Decline rate</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{summary.decline_rate ?? "—"}%</div>
+        </div>
+        <div style={{ background: "var(--surf2)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--txt3)" }}>Refer rate</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{summary.refer_rate ?? "—"}%</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <button onClick={() => setShowTable(!showTable)} style={{
+          padding: "5px 12px", borderRadius: 6, border: "1px solid var(--surf3)", background: showTable ? "var(--navy)" : "white",
+          fontSize: 11, cursor: "pointer", fontFamily: "var(--fb)", color: showTable ? "white" : "var(--txt2)",
+        }}>
+          {showTable ? "Hide" : "Show"} log ({records.length})
+        </button>
+        <button onClick={load} style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--surf3)", background: "white", fontSize: 10, cursor: "pointer", fontFamily: "var(--fb)", color: "var(--txt3)" }}>
+          Refresh
+        </button>
+      </div>
+
+      {showTable && records.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+            <thead>
+              <tr style={{ borderBottom: "1.5px solid var(--surf3)" }}>
+                {["Time", "Age/Gender", "Tier", "UW Status", "Fallback", "Model", "Email"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "6px 6px", fontSize: 10, color: "var(--txt3)", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {records.slice(0, 50).map((r, i) => {
+                const uwColor = r.underwriting_status === "decline" ? "#dc2626" : r.underwriting_status === "refer" ? "#c46800" : "#059669";
+                const uwBg = r.underwriting_status === "decline" ? "#fef2f2" : r.underwriting_status === "refer" ? "#fffbeb" : "#e1f5ee";
+                return (
+                  <tr key={i} style={{ borderBottom: "1px solid var(--surf2)" }}>
+                    <td style={{ padding: "6px", color: "var(--txt3)", fontSize: 10 }}>{r.created_at ? new Date(r.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                    <td style={{ padding: "6px" }}>{r.age}{r.gender ? `/${r.gender[0]}` : ""}</td>
+                    <td style={{ padding: "6px", fontSize: 10 }}>{r.ipd_tier || "—"}</td>
+                    <td style={{ padding: "6px" }}>
+                      <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 10, background: uwBg, color: uwColor, fontWeight: 600 }}>
+                        {r.underwriting_status || "accept"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "6px" }}>
+                      <span style={{ fontSize: 10, color: r.used_fallback ? "#dc2626" : "var(--txt3)" }}>
+                        {r.used_fallback ? "Yes" : "No"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "6px", fontSize: 10, color: "var(--txt3)" }}>{r.model_version ? r.model_version.slice(0, 12) : "—"}</td>
+                    <td style={{ padding: "6px", fontSize: 10, color: "var(--txt3)" }}>{r.email || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminModelVersions({ adminKey }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/api/v2/admin/model-versions`, { headers: { "X-API-Key": adminKey } });
+      setData(await r.json());
+    } catch { setData({ status: "error" }); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (!data) return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>{loading ? "Loading..." : "No data"}</div>;
+  if (data.status === "no_db") return <div style={{ fontSize: 12, color: "var(--txt3)", textAlign: "center", padding: 16 }}>Database not connected</div>;
+  if (data.status === "error") return <div style={{ fontSize: 12, color: "var(--danger)", textAlign: "center", padding: 16 }}>Failed to load version history</div>;
+
+  const versions = data.versions || [];
+
+  if (versions.length === 0) return (
+    <div style={{ textAlign: "center", padding: 20 }}>
+      <div style={{ fontSize: 12, color: "var(--txt3)" }}>No version history yet</div>
+      <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 4 }}>Versions are logged after each retrain</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button onClick={load} style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--surf3)", background: "white", fontSize: 10, cursor: "pointer", fontFamily: "var(--fb)", color: "var(--txt3)" }}>
+          Refresh
+        </button>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <thead>
+            <tr style={{ borderBottom: "1.5px solid var(--surf3)" }}>
+              {["Version", "Trained at", "Dataset", "R²", "Rows", "Promoted by"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "6px 6px", fontSize: 10, color: "var(--txt3)", fontWeight: 600 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {versions.map((v, i) => (
+              <tr key={i} style={{ borderBottom: "1px solid var(--surf2)", background: i === 0 ? "#f0fdf4" : "transparent" }}>
+                <td style={{ padding: "6px", fontWeight: i === 0 ? 600 : 400, fontSize: 10, fontFamily: "monospace" }}>{v.version}</td>
+                <td style={{ padding: "6px", color: "var(--txt3)", fontSize: 10 }}>
+                  {v.trained_at ? new Date(v.trained_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                </td>
+                <td style={{ padding: "6px", fontSize: 10 }}>{v.dataset || "—"}</td>
+                <td style={{ padding: "6px" }}>{v.r2 !== undefined && v.r2 !== null ? v.r2 : "—"}</td>
+                <td style={{ padding: "6px" }}>{v.training_rows ?? "—"}</td>
+                <td style={{ padding: "6px", fontSize: 10, color: "var(--txt3)" }}>{v.promoted_by || "auto"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
