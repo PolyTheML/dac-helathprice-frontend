@@ -3,7 +3,6 @@
 // Two workflows: (1) Quick Quote generation, (2) Claims data upload & GLM calibration.
 
 import { useState, useEffect } from "react";
-import AutoPricingLab from "./AutoPricingLab";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const API_URL      = "https://dac-healthprice-api.onrender.com";
@@ -2365,7 +2364,6 @@ export default function InsuranceDashboard() {
     { id: "security",     label: "Security"         },
     { id: "optimizer",    label: "Policy Optimizer" },
     { id: "simulator",    label: "Claims Simulator" },
-    { id: "autolab",      label: "🚗 Auto Pricing Lab" },
   ];
 
   if (!authed) return <AuthGate onAuth={handleAuth} />;
@@ -2432,7 +2430,6 @@ export default function InsuranceDashboard() {
         {activeTab === "security"     && <SecurityTab    username="admin" />}
         {activeTab === "optimizer"    && <PolicyOptimizerTab />}
         {activeTab === "simulator"    && <ClaimsSimulatorTab />}
-        {activeTab === "autolab"      && <AutoPricingLab />}
       </div>
     </section>
   );
