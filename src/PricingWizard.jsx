@@ -587,7 +587,7 @@ export default function PricingWizard() {
                   <div style={{ display: "flex", gap: 6 }}>
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--gold)", color: "var(--navy)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                       +855 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                    </di
+                    </div>
                     <input
                       value={contactForm.phone} onChange={e => setContactForm(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))}
                       placeholder="12 345 678" type="tel"
