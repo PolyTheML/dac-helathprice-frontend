@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML vs Statistical Models - Print/PDF Version</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            color: #1a1f2e;
+            line-height: 1.6;
+            background: white;
+        }
+
+        /* Print optimized */
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+
+            body {
+                background: white;
+            }
+
+            .page-break {
+                page-break-after: always;
+                clear: both;
+            }
+
+            .slide {
+                page-break-after: always;
+                break-inside: avoid;
+            }
+        }
+
+        /* Screen view */
+        @media screen {
+            body {
+                background: #f5f5f5;
+            }
+        }
+
+        .slide {
+            width: 100%;
+            height: 100vh;
+            padding: 60px 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: white;
+            page-break-after: always;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        @media screen {
+            .slide {
+                margin-bottom: 20px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                border-radius: 2px;
+            }
+        }
+
+        /* Slide backgrounds */
+        .slide.title-slide {
+            background: linear-gradient(135deg, #1a2847 0%, #0f1419 100%);
+            color: white;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #f5c563;
+            letter-spacing: -1px;
+            line-height: 1.2;
+        }
+
+        .slide.title-slide h1 {
+            font-size: 64px;
+            color: #f5c563;
+        }
+
+        h2 {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 40px;
+            color: #1a2847;
+        }
+
+        .slide.title-slide h2 {
+            color: white;
+        }
+
+        h3 {
+            font-size: 26px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            color: #1a2847;
+        }
+
+        .slide.title-slide h3 {
+            color: #f5c563;
+        }
+
+        h4 {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 20px 0 10px 0;
+            color: #1a2847;
+        }
+
+        .slide.title-slide h4 {
+            color: #f5c563;
+        }
+
+        p {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #3a3a3a;
+        }
+
+        .slide.title-slide p {
+            color: white;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 20px 0;
+        }
+
+        li {
+            font-size: 18px;
+            padding-left: 30px;
+            position: relative;
+            margin-bottom: 15px;
+            color: #3a3a3a;
+        }
+
+        .slide.title-slide li {
+            color: white;
+        }
+
+        li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #f5c563;
+            font-size: 22px;
+        }
+
+        .subtitle {
+            font-size: 28px;
+            color: #a0a0a0;
+            margin-top: 20px;
+            font-weight: 300;
+        }
+
+        .slide.title-slide .subtitle {
+            color: #e0e0e0;
+        }
+
+        .subtitle-gold {
+            color: #f5c563;
+            font-weight: 500;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            font-size: 15px;
+        }
+
+        th {
+            background: #f5c563;
+            color: #1a1f2e;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #ddd;
+        }
+
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            color: #3a3a3a;
+        }
+
+        td strong {
+            color: #1a2847;
+        }
+
+        /* Boxes */
+        .box {
+            background: #f5f7fa;
+            border-left: 4px solid #f5c563;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 2px;
+        }
+
+        .box-title {
+            font-weight: 600;
+            color: #1a2847;
+            margin-bottom: 10px;
+            font-size: 17px;
+        }
+
+        .box-content {
+            font-size: 16px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .comparison-col {
+            background: #f5f7fa;
+            padding: 25px;
+            border-radius: 2px;
+            border-top: 3px solid #f5c563;
+        }
+
+        .comparison-col h4 {
+            color: #1a2847;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .comparison-col li {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        /* Analogy */
+        .analogy {
+            background: #e8f4f8;
+            border-left: 5px solid #f5c563;
+            padding: 25px;
+            margin: 30px 0;
+            border-radius: 2px;
+            font-size: 17px;
+            line-height: 1.8;
+        }
+
+        .analogy em {
+            font-style: italic;
+            color: #1a2847;
+            font-weight: 600;
+        }
+
+        .divider {
+            width: 60px;
+            height: 3px;
+            background: #f5c563;
+            margin: 30px 0;
+        }
+
+        /* References section */
+        .references li {
+            font-size: 16px;
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+
+        /* Page number */
+        .page-num {
+            position: absolute;
+            bottom: 20px;
+            right: 30px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        @media print {
+            .page-num {
+                display: none;
+            }
+        }
+
+        /* Print instructions */
+        .print-instructions {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        @media print {
+            .print-instructions {
+                display: none;
+            }
+        }
+
+        .print-instructions h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .print-instructions p {
+            color: #856404;
+            margin: 5px 0;
+        }
+
+        @media screen {
+            .screen-only {
+                display: block;
+            }
+        }
+
+        @media print {
+            .screen-only {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Print Instructions (screen only) -->
+<div class="print-instructions screen-only">
+    <h3>📄 To Export as PDF:</h3>
+    <p><strong>Windows/Mac:</strong> Press <code>Ctrl+P</code> (Windows) or <code>Cmd+P</code> (Mac)</p>
+    <p><strong>Destination:</strong> Select "Save as PDF"</p>
+    <p><strong>Settings:</strong> Use default settings or set to 16:9 landscape for best presentation view</p>
+    <p><strong>Orientation:</strong> Portrait recommended for readability</p>
+</div>
+
+<!-- Slide 1: Title -->
+<div class="slide title-slide">
+    <h1>Machine Learning vs.<br>Statistical Models</h1>
+    <div class="divider"></div>
+    <p class="subtitle">Understanding the Fundamental Differences and When to Use Each</p>
+    <p class="subtitle-gold">Based on Academic Research & Business Practice</p>
+    <div class="page-num">1</div>
+</div>
+
+<!-- Slide 2: Why This Matters -->
+<div class="slide">
+    <h2>Why This Distinction Matters</h2>
+    <ul>
+        <li><strong>Different Tools, Different Results</strong> — Statistical models explain *why*; ML models predict *what*</li>
+        <li><strong>Real Business Cost</strong> — Choosing the wrong approach wastes resources and delays insights</li>
+        <li><strong>Regulatory Risk</strong> — Finance, healthcare, and lending require explainability</li>
+        <li><strong>Data Requirements Differ</strong> — Statistical models work with less data; ML models need more</li>
+        <li><strong>Both Are Valuable</strong> — The choice depends on your business question, not which is "better"</li>
+    </ul>
+    <div class="page-num">2</div>
+</div>
+
+<!-- Slide 3: Statistical Model -->
+<div class="slide">
+    <h2>Statistical Models</h2>
+    <h3>Theory-Driven Inference</h3>
+    <ul>
+        <li><strong>Goal:</strong> Explain relationships and test hypotheses</li>
+        <li><strong>Approach:</strong> You specify a functional form; data estimates parameters</li>
+        <li><strong>Output:</strong> Interpretable coefficients + confidence intervals</li>
+        <li><strong>Example:</strong> Logistic regression, linear models, GLM</li>
+    </ul>
+    <div class="box">
+        <div class="box-content"><em>"For each additional year of age, the risk increases by 2%, holding all else equal."</em></div>
+    </div>
+    <div class="page-num">3</div>
+</div>
+
+<!-- Slide 4: ML Model -->
+<div class="slide">
+    <h2>Machine Learning Models</h2>
+    <h3>Data-Driven Prediction</h3>
+    <ul>
+        <li><strong>Goal:</strong> Maximize predictive accuracy on new data</li>
+        <li><strong>Approach:</strong> Algorithm discovers patterns directly from data</li>
+        <li><strong>Output:</strong> Predicted values (often probabilities)</li>
+        <li><strong>Example:</strong> Random forests, gradient boosting, neural networks</li>
+    </ul>
+    <div class="box">
+        <div class="box-content"><em>"This customer has an 87% probability of churning."</em></div>
+    </div>
+    <div class="page-num">4</div>
+</div>
+
+<!-- Slide 5: Key Differences -->
+<div class="slide">
+    <h2>Key Differences at a Glance</h2>
+    <table>
+        <tr>
+            <th>Aspect</th>
+            <th>Statistical Model</th>
+            <th>Machine Learning</th>
+        </tr>
+        <tr>
+            <td><strong>Primary Goal</strong></td>
+            <td>Understand relationships</td>
+            <td>Predict accurately</td>
+        </tr>
+        <tr>
+            <td><strong>Approach</strong></td>
+            <td>Theory-driven</td>
+            <td>Data-driven</td>
+        </tr>
+        <tr>
+            <td><strong>Interpretability</strong></td>
+            <td>High (transparent)</td>
+            <td>Low (black box)</td>
+        </tr>
+        <tr>
+            <td><strong>Data Required</strong></td>
+            <td>100–10K observations</td>
+            <td>10K–1M+ observations</td>
+        </tr>
+        <tr>
+            <td><strong>Flexibility</strong></td>
+            <td>Constrained by form</td>
+            <td>Highly flexible</td>
+        </tr>
+    </table>
+    <div class="page-num">5</div>
+</div>
+
+<!-- Slide 6: Research Evidence Part 1 -->
+<div class="slide">
+    <h2>Academic Research Evidence</h2>
+    <div class="box">
+        <div class="box-title">Shmueli (2010): "To Explain or to Predict?"</div>
+        <div class="box-content">Foundational paper arguing that explanation and prediction are fundamentally different modeling objectives. A model optimized for explanation may have poor predictive accuracy; vice versa. <strong>Statistical Science, Vol. 25, Issue 3</strong></div>
+    </div>
+    <div class="box">
+        <div class="box-title">Ribeiro, Singh & Guestrin (2016): "Why Should I Trust You?"</div>
+        <div class="box-content">Introduces LIME—a technique to explain individual predictions from black-box ML models. Acknowledges ML sacrifices interpretability for accuracy. <strong>ACM KDD 2016 / NAACL 2016</strong></div>
+    </div>
+    <div class="page-num">6</div>
+</div>
+
+<!-- Slide 7: Research Evidence Part 2 -->
+<div class="slide">
+    <h2>Academic Research Evidence (continued)</h2>
+    <div class="box">
+        <div class="box-title">Molnar (2020): "Interpretable Machine Learning"</div>
+        <div class="box-content">Comprehensive survey of interpretability methods (SHAP, LIME, permutation importance). Demonstrates the trade-off: interpretability requires either simpler models or post-hoc approximations. <strong>Open-access guide, 2020+</strong></div>
+    </div>
+    <div class="box">
+        <div class="box-title">Harrell (2020): "Road Map for Choosing Between Statistical Modeling and ML"</div>
+        <div class="box-content">Practical decision framework recommending statistical models for inference, ML for pure prediction. Emphasizes that ML requires larger samples and more tuning. <strong>Statistical Thinking, 2020</strong></div>
+    </div>
+    <div class="page-num">7</div>
+</div>
+
+<!-- Slide 8: Analogy -->
+<div class="slide">
+    <h2>An Illuminating Analogy</h2>
+    <div class="analogy">
+        <p><strong>A statistical model</strong> is like a detective arriving at a crime scene with a theory ("the butler did it"). They gather evidence to test that specific theory, quantify how strong the evidence is, and can explain exactly why they believe the butler is guilty.</p>
+        <div class="divider" style="margin: 20px 0;"></div>
+        <p><strong>A machine learning model</strong> is like a security camera that records everything and learns which patterns reliably precede crimes—without being told in advance what to look for. It's very good at predicting when a crime will happen, but can't easily explain *why* the pattern matters.</p>
+    </div>
+    <div class="page-num">8</div>
+</div>
+
+<!-- Slide 9: Business Use Cases -->
+<div class="slide">
+    <h2>Business Use Cases</h2>
+    <div class="comparison">
+        <div class="comparison-col">
+            <h4>Insurance Pricing (Statistical)</h4>
+            <p><strong>Question:</strong> What factors drive premiums?</p>
+            <p><strong>Model:</strong> GLM / logistic regression</p>
+            <p><strong>Output:</strong> "Smokers pay 2.0× base premium"</p>
+            <p><strong>Why:</strong> Regulators require transparent pricing</p>
+        </div>
+        <div class="comparison-col">
+            <h4>Fraud Detection (Machine Learning)</h4>
+            <p><strong>Question:</strong> Which transactions are fraudulent?</p>
+            <p><strong>Model:</strong> Gradient boosting or neural net</p>
+            <p><strong>Output:</strong> "87% fraud probability"</p>
+            <p><strong>Why:</strong> Accuracy matters; speed matters more</p>
+        </div>
+    </div>
+    <div class="page-num">9</div>
+</div>
+
+<!-- Slide 10: When to Use Each -->
+<div class="slide">
+    <h2>When to Use Each Approach</h2>
+    <div class="comparison">
+        <div class="comparison-col">
+            <h4>Choose Statistical Models</h4>
+            <ul>
+                <li>Need to explain *why* outcomes occur</li>
+                <li>Regulatory compliance requires explainability</li>
+                <li>Small to moderate dataset (100–10K rows)</li>
+                <li>Stakeholders value transparency</li>
+                <li>Want confidence intervals & hypothesis tests</li>
+            </ul>
+        </div>
+        <div class="comparison-col">
+            <h4>Choose Machine Learning</h4>
+            <ul>
+                <li>Primary goal is predictive accuracy</li>
+                <li>Large datasets (10K+ observations)</li>
+                <li>Can tolerate black-box predictions</li>
+                <li>Problem has complex non-linear patterns</li>
+                <li>Can use post-hoc explanation tools (LIME, SHAP)</li>
+            </ul>
+        </div>
+    </div>
+    <div class="page-num">10</div>
+</div>
+
+<!-- Slide 11: Key Takeaways -->
+<div class="slide">
+    <h2>Key Takeaways</h2>
+    <ul>
+        <li><strong>Not Competitors—Complementary Tools</strong> — Statistical models explain; ML predicts</li>
+        <li><strong>Conflation is Costly</strong> — Don't build a black box when transparency is required</li>
+        <li><strong>Context Matters</strong> — Your business question, data, and stakeholders determine the choice</li>
+        <li><strong>Both Have Limitations</strong> — No single model works for all problems</li>
+        <li><strong>Modern Approach: Hybrid</strong> — Use statistics for inference, ML for prediction; combine when possible</li>
+    </ul>
+    <div class="divider"></div>
+    <p style="font-size: 20px; margin-top: 30px; font-weight: 600;"><strong>The right question isn't "Which is better?" but "Which answers the question we're trying to solve?"</strong></p>
+    <div class="page-num">11</div>
+</div>
+
+<!-- Slide 12: References -->
+<div class="slide references">
+    <h2>References</h2>
+    <ul>
+        <li><strong>Harrell, F. E.</strong> (2020). Road Map for Choosing Between Statistical Modeling and Machine Learning. <em>Statistical Thinking</em>.</li>
+        <li><strong>Molnar, C.</strong> (2020). <em>Interpretable Machine Learning: A Guide for Making Black Box Models Explainable</em>. Retrieved from https://christophm.github.io/interpretable-ml-book/</li>
+        <li><strong>Ribeiro, M., Singh, S., & Guestrin, C.</strong> (2016). "Why Should I Trust You?": Explaining the predictions of any classifier. In <em>Proceedings of the 2016 Conference of the North American Chapter of the Association for Computational Linguistics: Demonstrations</em> (pp. 97–101). ACM KDD 2016.</li>
+        <li><strong>Shmueli, G.</strong> (2010). To explain or to predict? <em>Statistical Science</em>, 25(3), 289–310. https://doi.org/10.1214/10-STS330</li>
+        <li><strong>Springer Nature.</strong> (2019). Machine learning and conventional statistics: making sense of the differences. <em>Knee Surgery, Sports Traumatology, Arthroscopy</em>. https://link.springer.com/article/10.1007/s00167-022-06896-6</li>
+    </ul>
+    <div class="page-num">12</div>
+</div>
+
+</body>
+</html>
