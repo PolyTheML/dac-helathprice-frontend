@@ -107,12 +107,45 @@ function localPrice(inp) {
   const ff = 1 + (inp.family_size - 1) * 0.65;
   total = Math.round(total * ff * 100) / 100;
 
+  // ── Escalation product calculation ──────────────────────────────────────────
+  // Cost factor: (PV(escalating) / PV(flat) - 1) × cap_utilization
+  // Default params: r=5%, d=6%, n=20yr, cap=2.5×, util=20% → ~10.1% markup
+  let escalation_details = null;
+  if (inp.include_escalation) {
+    const r = 0.05, d = 0.06, n = 20, cap = 2.5, util = 0.20;
+    const pvFlat = Array.from({ length: n }, (_, i) => 1 / (1 + d) ** (i + 1)).reduce((a, b) => a + b, 0);
+    const pvEsc  = Array.from({ length: n }, (_, i) => Math.min((1 + r) ** i, cap) / (1 + d) ** (i + 1)).reduce((a, b) => a + b, 0);
+    const costFactor = (pvEsc / pvFlat - 1) * util;
+    const escalatedAnnual = Math.round(total * (1 + costFactor) * 100) / 100;
+    const baseCoverage = parseFloat((TIERS[inp.ipd_tier]?.limit || "$50,000").replace(/[$,]/g, "")) || 50000;
+    const projections = Array.from({ length: n }, (_, i) => ({
+      year: i + 1,
+      coverage_multiple: Math.round(Math.min((1 + r) ** i, cap) * 10000) / 10000,
+      coverage_amount: Math.round(Math.min((1 + r) ** i, cap) * baseCoverage),
+      cumulative_escalation_pct: Math.round((Math.min((1 + r) ** i, cap) - 1) * 1000) / 10,
+      loyalty_bonus: i + 1 === 10 ? Math.round(escalatedAnnual * 0.25) : i + 1 === 20 ? Math.round(escalatedAnnual * 0.50) : 0,
+    }));
+    escalation_details = {
+      enabled: true,
+      cost_factor: Math.round(costFactor * 10000) / 10000,
+      cost_factor_pct: `${(costFactor * 100).toFixed(1)}%`,
+      base_annual_premium: total,
+      escalated_annual_premium: escalatedAnnual,
+      escalated_monthly_premium: Math.round(escalatedAnnual / 12 * 100) / 100,
+      base_coverage: baseCoverage,
+      terminal_coverage: baseCoverage * cap,
+      projections,
+    };
+    total = escalatedAnnual;
+  }
+
   return {
     quote_id: `LOCAL-${Date.now()}`, model_version: "local-glm", ipd_tier: inp.ipd_tier,
     tier_benefits: TIERS[inp.ipd_tier],
     ipd_core: { ...ipd, annual_premium: ipd_prem, monthly_premium: Math.round(ipd_prem / 12 * 100) / 100, tier_factor: tf, deductible_credit: ded_credit, loading_pct: LOAD.ipd, source: "local-glm" },
     riders, family_size: inp.family_size, family_factor: Math.round(ff * 100) / 100,
     total_annual_premium: total, total_monthly_premium: Math.round(total / 12 * 100) / 100,
+    escalation_details,
     risk_profile: { age: inp.age, gender: inp.gender, smoking: inp.smoking_status, exercise: inp.exercise_frequency, occupation: inp.occupation_type, preexist_conditions: inp.preexist_conditions },
   };
 }
@@ -318,6 +351,7 @@ export default function PricingWizard() {
     healthcare_proximity: "<5km",
     ipd_tier: "Silver", family_size: 1,
     include_opd: false, include_dental: false, include_maternity: false,
+    include_escalation: false,
   });
 
   // Derive exercise_frequency label from days*mins for backend compatibility
@@ -916,6 +950,36 @@ export default function PricingWizard() {
                   })}
                 </div>
 
+                {/* ── Escalation product toggle ── */}
+                <div className="card" style={{ border: inp.include_escalation ? "1.5px solid var(--gold)" : "1.5px solid var(--surf3)", background: inp.include_escalation ? "var(--gold-bg)" : "white" }}>
+                  <div className="card-label" style={{ marginBottom: 10 }}>
+                    Protection upgrade
+                    <span style={{ marginLeft: 8, padding: "2px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700, background: "var(--gold)", color: "var(--navy)" }}>NEW</span>
+                  </div>
+                  <div
+                    className={`rider-row ${inp.include_escalation ? "on" : ""}`}
+                    style={{ marginBottom: 0, border: "none", padding: "10px 0", background: "transparent", cursor: "pointer" }}
+                    onClick={() => u("include_escalation", !inp.include_escalation)}
+                  >
+                    <div className="rider-icon" style={{ background: "#f0fdf4" }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
+                    </div>
+                    <div className="rider-info">
+                      <div className="rider-name">Auto-Escalation <span style={{ fontSize: 10, fontWeight: 400, color: "var(--txt3)" }}>+5%/year</span></div>
+                      <div className="rider-desc">Coverage grows 5% every year. Same premium. No health re-check. Cap: 250% of base.</div>
+                    </div>
+                    <div className="rider-price" style={{ color: inp.include_escalation ? "var(--gold-d)" : "var(--txt3)" }}>
+                      ~+10%<span>of premium</span>
+                    </div>
+                    <div className="rider-check">{inp.include_escalation && <Ck />}</div>
+                  </div>
+                  {inp.include_escalation && (
+                    <div style={{ marginTop: 10, padding: "8px 10px", background: "#f0fdf4", borderRadius: 8, fontSize: 11, color: "#166534", lineHeight: 1.5, borderLeft: "3px solid #16a34a" }}>
+                      Your coverage grows automatically: Year 1 → 100%, Year 5 → 122%, Year 10 → 155%, Year 20 → 250% of base. Same premium throughout. Loyalty bonuses at Year 10 and Year 20.
+                    </div>
+                  )}
+                </div>
+
                 {aiTip && (
                   <div className="ai-bar">
                     <div className="ai-dot">AI</div>
@@ -969,6 +1033,53 @@ export default function PricingWizard() {
                         {result.ipd_tier} tier{Object.keys(result.riders || {}).length > 0 && ` + ${Object.keys(result.riders).join(", ")}`}
                       </div>
                       <div style={{ marginTop: 10, fontSize: 10, opacity: 0.45, fontStyle: "italic" }}>Exact premium confirmed by your DAC advisor</div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Escalation projection ── */}
+                {result?.escalation_details?.enabled && (() => {
+                  const esc = result.escalation_details;
+                  const rows = [1, 2, 3, 5, 10, 15, 20].map(yr => esc.projections.find(p => p.year === yr)).filter(Boolean);
+                  return (
+                    <div className="card" style={{ marginBottom: 16, borderLeft: "3px solid #16a34a" }}>
+                      <div className="card-label" style={{ marginBottom: 2, color: "#166534" }}>
+                        Auto-Escalation — 20-year coverage growth
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--txt3)", marginBottom: 12 }}>
+                        Your premium stays at <strong>${Math.round(esc.escalated_monthly_premium)}/mo</strong>. Coverage grows every year.
+                        <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 4, fontSize: 9, background: "#dcfce7", color: "#166534", fontWeight: 600 }}>
+                          {esc.cost_factor_pct} escalation loading
+                        </span>
+                      </div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                          <thead>
+                            <tr style={{ borderBottom: "1.5px solid var(--surf3)" }}>
+                              {["Year", "Coverage", "vs. Base", "Bonus"].map(h => (
+                                <th key={h} style={{ textAlign: h === "Year" ? "left" : "right", padding: "4px 6px", color: "var(--txt3)", fontWeight: 600, letterSpacing: ".3px" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((p, i) => (
+                              <tr key={p.year} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--surf2)" : "none", background: p.year === 10 || p.year === 20 ? "#f0fdf4" : "transparent" }}>
+                                <td style={{ padding: "5px 6px", fontWeight: p.year === 20 ? 600 : 400 }}>Yr {p.year}</td>
+                                <td style={{ padding: "5px 6px", textAlign: "right", fontWeight: 600 }}>${p.coverage_amount.toLocaleString()}</td>
+                                <td style={{ padding: "5px 6px", textAlign: "right", color: p.cumulative_escalation_pct > 0 ? "#16a34a" : "var(--txt3)" }}>
+                                  {p.cumulative_escalation_pct > 0 ? `+${p.cumulative_escalation_pct}%` : "—"}
+                                </td>
+                                <td style={{ padding: "5px 6px", textAlign: "right", color: "#16a34a", fontWeight: p.loyalty_bonus > 0 ? 600 : 400 }}>
+                                  {p.loyalty_bonus > 0 ? `$${p.loyalty_bonus.toLocaleString()} 🎁` : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ marginTop: 10, fontSize: 10, color: "var(--txt3)", fontStyle: "italic" }}>
+                        Coverage capped at 250% of base (${ esc.terminal_coverage.toLocaleString()}). No health re-check required.
+                      </div>
                     </div>
                   );
                 })()}
