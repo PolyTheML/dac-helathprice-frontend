@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import PricingWizard from "./PricingWizard";
+import LifeInsurancePricer from "./LifeInsurancePricer";
 
 
 const API_URL = "https://dac-healthprice-api.onrender.com";
@@ -120,7 +121,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const PAGES = ["Home", "Pricing", "About", "Contact"];
+const PAGES = ["Home", "Pricing", "Life Insurance", "About", "Contact"];
 
 export default function App() {
   const [page, setPage] = useState("Home");
@@ -221,6 +222,7 @@ export default function App() {
 
       {page === "Home" && <HomePage onGetQuote={() => { setPage("Pricing"); window.scrollTo(0, 0); }} />}
       {page === "Pricing" && <PricingPage />}
+      {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "About" && <AboutPage />}
       {page === "Contact" && <ContactPage />}
 

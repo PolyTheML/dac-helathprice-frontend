@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
-const API = "https://snowy-haze-f313.poungrotha01555.workers.dev"; // Cloudflare Worker → backend-5frr.onrender.com
+const API = "https://dac-healthprice-api.onrender.com";
 const LOGO_URL = "/DAC.jpg"; // Your logo in /public
 
 function getBrowserId() {
@@ -1303,7 +1303,7 @@ const TOOLS = [
 const RIDER_NAMES = { include_opd: "OPD", include_dental: "Dental", include_maternity: "Maternity" };
 const STEP_NAMES = ["Personal info", "Health info", "Lifestyle", "Plan selection", "Review & confirm", "Quote result"];
 
-const CHAT_BACKEND = "https://backend-5frr.onrender.com";
+const CHAT_BACKEND = "https://dac-healthprice-api.onrender.com";
 
 function AIChat({ inp, result, sessionToken, onSwitchTier, onToggleRider, onCalculateWith, onGoToStep }) {
   const [open, setOpen] = useState(false);
