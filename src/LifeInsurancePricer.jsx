@@ -19,7 +19,7 @@ import UnderwriterQueue from "./UnderwriterQueue";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const LOCAL_ONLY = true; // flip to false once api/main.py is deployed on Render
-const UW_API_URL = "https://dac-uw-api.onrender.com"; // placeholder — update when deployed
+const UW_API_URL = "https://dac-healthprice-api.onrender.com";
 
 // ─── Brand colours (matches existing app) ────────────────────────────────────
 const NAVY   = "#0d2b7a";
