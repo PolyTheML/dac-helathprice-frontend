@@ -14,6 +14,8 @@
  */
 
 import { useState, useMemo } from "react";
+import DriftMonitor from "./DriftMonitor";
+import UnderwriterQueue from "./UnderwriterQueue";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const LOCAL_ONLY = true; // flip to false once api/main.py is deployed on Render
@@ -267,6 +269,8 @@ function BreakdownBar({ label, value, total, color }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LifeInsurancePricer() {
+  const [tab, setTab] = useState("pricer"); // "pricer" | "dashboard"
+
   const [inp, setInp] = useState({
     age: 35,
     gender: "M",
@@ -306,7 +310,37 @@ export default function LifeInsurancePricer() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28, alignItems: "start" }}>
+      {/* Tab bar */}
+      <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", gap: 0 }}>
+          {[["pricer", "Pricing Calculator"], ["dashboard", "Underwriter Dashboard"]].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={{
+                padding: "12px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                border: "none", background: "transparent",
+                color: tab === key ? NAVY : TXT2,
+                borderBottom: tab === key ? `2px solid ${NAVY}` : "2px solid transparent",
+                marginBottom: -1,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Dashboard tab */}
+      {tab === "dashboard" && (
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
+          <DriftMonitor backendUrl={UW_API_URL} />
+          <UnderwriterQueue backendUrl={UW_API_URL} />
+        </div>
+      )}
+
+      {/* Pricer tab */}
+      {tab === "pricer" && <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28, alignItems: "start" }}>
 
         {/* ═══ LEFT — Inputs ═══ */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -499,7 +533,7 @@ export default function LifeInsurancePricer() {
           </div>
 
         </div>
-      </div>
+      </div>}
 
       {/* Responsive style */}
       <style>{`
