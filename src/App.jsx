@@ -4,6 +4,7 @@ import ApplicationWizard from "./ApplicationWizard";
 import StatusTracker from "./StatusTracker";
 import UnderwriterDashboard from "./UnderwriterDashboard";
 import AdminConsole from "./AdminConsole";
+import PublicPortal from "./portal/PublicPortal";
 
 
 const API_URL = "https://dac-healthprice-api.onrender.com";
@@ -39,7 +40,7 @@ function LoginPage({ onLogin }) {
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/DAC.png" alt="DAC" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 12 }} />
           <div style={{ fontSize: 22, fontWeight: 700, color: "#0d2b7a" }}>DAC <span style={{ color: "#f5a623" }}>HealthPrice</span></div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Internal portal — staff access only</div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Staff portal — internal access only</div>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
@@ -124,9 +125,12 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const PAGES = ["Home", "Apply", "Track", "Life Insurance", "UW Review", "Admin", "About", "Contact"];
+const PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "UW Review", "Admin", "Portal", "About", "Contact"];
 
 export default function App() {
+  // Public portal — no staff auth required
+  if (window.location.pathname.startsWith("/portal")) return <PublicPortal />;
+
   const [page, setPage] = useState("Home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -211,7 +215,7 @@ export default function App() {
             <div style={{ display:"flex", gap:28 }}>
               {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
             </div>
-            <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("Apply"); window.scrollTo(0,0); }}>Get a quote</button>
+            <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("New Case"); window.scrollTo(0,0); }}>New Case</button>
             <button className="outline-btn" style={{ padding:"8px 20px", fontSize:13 }} onClick={() => { sessionStorage.removeItem("dac_authed"); setAuthed(false); }}>Sign out</button>
           </div>
           {/* Hamburger */}
@@ -223,16 +227,17 @@ export default function App() {
       {menuOpen && (
         <div className="mobile-menu">
           {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
-          <button className="gold-btn" onClick={() => { setPage("Life Insurance"); setMenuOpen(false); window.scrollTo(0,0); }}>Get a quote</button>
+          <button className="gold-btn" onClick={() => { setPage("New Case"); setMenuOpen(false); window.scrollTo(0,0); }}>New Case</button>
         </div>
       )}
 
-      {page === "Home" && <HomePage onGetQuote={() => { setPage("Apply"); window.scrollTo(0, 0); }} />}
-      {page === "Apply" && <ApplicationWizard />}
-      {page === "Track" && <StatusTracker />}
+      {page === "Home" && <HomePage onGetQuote={() => { setPage("New Case"); window.scrollTo(0, 0); }} />}
+      {page === "New Case" && <ApplicationWizard />}
+      {page === "Case Pipeline" && <StatusTracker />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "UW Review" && <UnderwriterDashboard />}
       {page === "Admin" && <AdminConsole />}
+      {page === "Portal" && <PublicPortalPage />}
       {page === "About" && <AboutPage />}
       {page === "Contact" && <ContactPage />}
 
@@ -256,7 +261,7 @@ export default function App() {
               {[
                 { label: "About DAC", go: "About" },
                 { label: "Contact Us", go: "Contact" },
-                { label: "Get a Quote", go: "Apply" },
+                { label: "New Case", go: "New Case" },
               ].map(s => <p key={s.label} onClick={() => { setPage(s.go); window.scrollTo(0,0); }} style={{ fontSize: 14, marginBottom: 10, cursor: "pointer" }}>{s.label}</p>)}
             </div>
             <div>
@@ -354,7 +359,7 @@ function HomePage({ onGetQuote }) {
               ))}
             </div>
             <div className="hero-cta" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <button className="gold-btn" style={{ fontSize: 17, padding: "16px 40px" }} onClick={onGetQuote}>Get a quote</button>
+              <button className="gold-btn" style={{ fontSize: 17, padding: "16px 40px" }} onClick={onGetQuote}>New Case</button>
               <button className="outline-btn" onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}>How it works</button>
             </div>
           </div>
@@ -540,7 +545,7 @@ function HomePage({ onGetQuote }) {
         <FadeIn>
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 40, color: WHITE, fontWeight: 700, marginBottom: 16 }}>Ready to see your premium?</h2>
           <p style={{ color: GRAY, fontSize: 18, marginBottom: 32, maxWidth: 500, margin: "0 auto 32px" }}>Get a personalized quote in under 2 minutes. No commitment required.</p>
-          <button className="gold-btn" style={{ fontSize: 18, padding: "18px 48px" }} onClick={onGetQuote}>Get your free quote</button>
+          <button className="gold-btn" style={{ fontSize: 18, padding: "18px 48px" }} onClick={onGetQuote}>Open New Case</button>
         </FadeIn>
       </section>
     </>
@@ -583,6 +588,170 @@ function AboutPage() {
             ))}
           </div>
         </FadeIn>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PUBLIC PORTAL PAGE (coming soon)
+// ═══════════════════════════════════════════════════════════════════════════════
+function PublicPortalPage() {
+  const features = [
+    {
+      icon: "📋",
+      title: "Self-Apply",
+      desc: "Customers fill the 5-step application wizard directly — no staff intermediary needed.",
+      status: "Planned · Week 6",
+      color: TEAL,
+    },
+    {
+      icon: "📡",
+      title: "Live Case Tracking",
+      desc: "Customers see their own case status, documents required, and decision timeline in real time.",
+      status: "Planned · Week 6",
+      color: "#8b5cf6",
+    },
+    {
+      icon: "🔐",
+      title: "Secure Auth (OTP / JWT)",
+      desc: "Phone-number OTP login so customers authenticate without creating a staff account.",
+      status: "Planned · Week 7",
+      color: GOLD_D,
+    },
+    {
+      icon: "📄",
+      title: "Document Upload",
+      desc: "Customers upload ID, medical reports, and consent forms directly to their case file.",
+      status: "Planned · Week 6",
+      color: OK,
+    },
+    {
+      icon: "💬",
+      title: "AI Quote Advisor",
+      desc: "Embedded chatbot explains premium breakdown, suggests plan optimizations, and answers coverage questions.",
+      status: "Planned · Week 7",
+      color: "#ec4899",
+    },
+    {
+      icon: "🔔",
+      title: "Push Notifications",
+      desc: "Email / SMS alerts when case status changes — no polling required from the customer.",
+      status: "Planned · Week 8",
+      color: NAVY_L,
+    },
+  ];
+
+  const techStack = [
+    { label: "Frontend", value: "React SPA (separate Vercel deployment)" },
+    { label: "Auth", value: "Phone OTP → JWT (Twilio / Firebase)" },
+    { label: "API", value: "Shared FastAPI backend (dac-healthprice-api.onrender.com)" },
+    { label: "Storage", value: "Supabase (PostgreSQL + object storage)" },
+    { label: "Notifications", value: "Resend (email) + Twilio (SMS)" },
+    { label: "Deploy target", value: "portal.dactuaries.com (Week 8)" },
+  ];
+
+  return (
+    <section style={{ paddingTop: 120, paddingBottom: 80, background: WHITE, minHeight: "100vh" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
+
+        {/* Header */}
+        <FadeIn>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
+            <span style={{ background: `${GOLD}20`, color: GOLD_D, fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "4px 12px", borderRadius: 20 }}>
+              Coming Soon · Week 6–8
+            </span>
+          </div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 44, fontWeight: 700, color: TXT, marginBottom: 16 }}>
+            Customer Public Portal
+          </h1>
+          <p style={{ color: TXT2, fontSize: 18, lineHeight: 1.7, maxWidth: 680, marginBottom: 48 }}>
+            A separate customer-facing SPA so applicants can self-apply, upload documents, and track their own case — without staff involvement at every step. Shares the same FastAPI backend as this internal tool.
+          </p>
+        </FadeIn>
+
+        {/* Architecture split callout */}
+        <FadeIn delay={0.1}>
+          <div style={{ background: NAVY, borderRadius: 20, padding: "32px 40px", marginBottom: 64, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+            <div>
+              <p style={{ color: GOLD, fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>This app — Internal Tool</p>
+              <p style={{ color: WHITE, fontSize: 20, fontWeight: 700, marginBottom: 8 }}>DAC HealthPrice (Staff)</p>
+              <p style={{ color: GRAY, fontSize: 14, lineHeight: 1.6 }}>New Case · Case Pipeline · GLM Workbench · UW Review · Admin Console</p>
+              <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: OK }} />
+                <span style={{ color: OK, fontSize: 13, fontWeight: 600 }}>Live — dac-healthprice-frontend.vercel.app</span>
+              </div>
+            </div>
+            <div style={{ borderLeft: `1px solid rgba(255,255,255,0.1)`, paddingLeft: 32 }}>
+              <p style={{ color: GOLD, fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>New app — Public Portal</p>
+              <p style={{ color: WHITE, fontSize: 20, fontWeight: 700, marginBottom: 8 }}>DAC HealthPrice (Customer)</p>
+              <p style={{ color: GRAY, fontSize: 14, lineHeight: 1.6 }}>Self-Apply · Track My Case · Upload Documents · AI Advisor · OTP Login</p>
+              <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: GOLD, animation: "pulse 2s infinite" }} />
+                <span style={{ color: GRAY, fontSize: 13, fontWeight: 600 }}>Building · portal.dactuaries.com</span>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* Feature grid */}
+        <FadeIn delay={0.15}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, marginBottom: 32 }}>Planned Features</h2>
+        </FadeIn>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, marginBottom: 64 }}>
+          {features.map((f, i) => (
+            <FadeIn key={i} delay={0.1 + i * 0.08}>
+              <div className="card-hover" style={{ background: WHITE, border: "1px solid #e5e7eb", borderRadius: 16, padding: 28, transition: "all 0.3s", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: f.color }} />
+                <div style={{ fontSize: 32, marginBottom: 12 }}>{f.icon}</div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: TXT }}>{f.title}</h3>
+                <p style={{ color: TXT2, fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>{f.desc}</p>
+                <span style={{ background: `${f.color}15`, color: f.color, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, padding: "4px 10px", borderRadius: 20 }}>{f.status}</span>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+
+        {/* Tech stack */}
+        <FadeIn delay={0.2}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, marginBottom: 24 }}>Tech Stack</h2>
+          <div style={{ border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden" }}>
+            {techStack.map((r, i) => (
+              <div key={i} style={{ display: "flex", gap: 24, padding: "16px 28px", background: i % 2 === 0 ? WHITE : LTGRAY, borderBottom: i < techStack.length - 1 ? "1px solid #e5e7eb" : "none" }}>
+                <span style={{ minWidth: 120, fontSize: 14, fontWeight: 600, color: NAVY }}>{r.label}</span>
+                <span style={{ fontSize: 14, color: TXT2 }}>{r.value}</span>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
+
+        {/* Week timeline */}
+        <FadeIn delay={0.25}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, margin: "48px 0 24px" }}>Build Timeline</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {[
+              { week: "Week 6", focus: "Public portal scaffold — self-apply wizard + document upload", done: false },
+              { week: "Week 7", focus: "OTP auth (JWT) + case tracking + AI advisor chatbot", done: false },
+              { week: "Week 8", focus: "Email/SMS notifications + load test + custom domain launch", done: false },
+            ].map((w, i) => (
+              <div key={i} style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "20px 0", borderBottom: "1px solid #f3f4f6" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: w.done ? OK : LTGRAY, border: `2px solid ${w.done ? OK : "#d1d5db"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {w.done
+                      ? <svg width="16" height="16" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      : <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#d1d5db" }} />}
+                  </div>
+                  {i < 2 && <div style={{ width: 2, height: 40, background: "#e5e7eb", marginTop: 4 }} />}
+                </div>
+                <div style={{ paddingTop: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: GOLD_D, textTransform: "uppercase", letterSpacing: 0.5 }}>{w.week}</span>
+                  <p style={{ color: TXT, fontSize: 15, marginTop: 4, lineHeight: 1.6 }}>{w.focus}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
+
       </div>
     </section>
   );
