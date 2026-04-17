@@ -13,7 +13,7 @@ const TXT2   = "#4b5563";
 const OK     = "#10b981";
 const ERR    = "#ef4444";
 
-const TABS = ["System Health", "Model Management", "Rules Management", "Audit Log"];
+const TABS = ["System Health", "Model Management", "Vietnam ML", "Rules Management", "Audit Log"];
 
 // ── Mock data (replace with live endpoints when backend is ready) ─────────────
 
@@ -523,6 +523,147 @@ function AuditLogTab() {
   );
 }
 
+// ── Tab: Vietnam ML ───────────────────────────────────────────────────────────
+
+function VietnamMLTab() {
+  const [versions, setVersions]         = useState([]);
+  const [loadingVersions, setLoadingV]  = useState(true);
+  const [retraining, setRetraining]     = useState(false);
+  const [retrainType, setRetrainType]   = useState("both");
+  const [retrainResult, setRetrainResult] = useState(null);
+
+  const fetchVersions = async () => {
+    setLoadingV(true);
+    try {
+      const r = await fetch(`${API_URL}/api/vietnam/model-versions`);
+      const data = await r.json();
+      setVersions(data.versions || []);
+    } catch { setVersions([]); }
+    setLoadingV(false);
+  };
+
+  useEffect(() => { fetchVersions(); }, []);
+
+  const triggerRetrain = async () => {
+    setRetraining(true);
+    setRetrainResult(null);
+    try {
+      const r = await fetch(`${API_URL}/api/vietnam/retrain`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model_type: retrainType }),
+      });
+      const data = await r.json();
+      setRetrainResult(data);
+      await fetchVersions();
+    } catch (e) {
+      setRetrainResult({ status: "error", message: e.message });
+    }
+    setRetraining(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+      {/* Retrain trigger */}
+      <section style={{ background: WHITE, borderRadius: 16, padding: 24, border: "1px solid #e5e7eb" }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, color: TXT, margin: "0 0 6px" }}>Trigger Model Retraining</h3>
+        <p style={{ color: TXT2, fontSize: 13, marginBottom: 18 }}>
+          Re-run XGBoost training on the latest Vietnam dataset. Results are logged in the version history below.
+        </p>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: TXT2, marginBottom: 6 }}>Model</label>
+            <select value={retrainType} onChange={e => setRetrainType(e.target.value)}
+              style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, fontFamily: "inherit", outline: "none", minWidth: 160, background: WHITE }}>
+              <option value="both">Both Models</option>
+              <option value="health">Health Score only</option>
+              <option value="life">Mortality Model only</option>
+            </select>
+          </div>
+          <button onClick={triggerRetrain} disabled={retraining}
+            style={{ padding: "11px 24px", borderRadius: 8, background: retraining ? GRAY : GOLD, color: NAVY, border: "none",
+              fontSize: 14, fontWeight: 700, cursor: retraining ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+            {retraining ? "Training…" : "Retrain Now"}
+          </button>
+          <button onClick={fetchVersions} style={{ padding: "11px 16px", borderRadius: 8, background: "#f1f3f5", color: TXT2,
+            border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+            Refresh History
+          </button>
+        </div>
+
+        {retrainResult && (
+          <div style={{ marginTop: 18, padding: 16, borderRadius: 10,
+            background: retrainResult.status === "complete" ? "#f0fdf4" : "#fef2f2",
+            border: `1px solid ${retrainResult.status === "complete" ? "#a7f3d0" : "#fecaca"}` }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: retrainResult.status === "complete" ? OK : ERR, marginBottom: 6 }}>
+              {retrainResult.status === "complete" ? "Retraining complete" : "Retraining failed"}
+            </p>
+            <p style={{ fontSize: 12, color: TXT2, marginBottom: retrainResult.new_versions?.length ? 10 : 0 }}>{retrainResult.message}</p>
+            {retrainResult.new_versions?.map(v => (
+              <div key={v.version_id} style={{ padding: "8px 12px", background: WHITE, borderRadius: 8, fontSize: 12, marginTop: 6,
+                display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontFamily: "monospace", fontWeight: 600, color: NAVY }}>{v.version_id}</span>
+                <span style={{ color: TXT2 }}>R² = <strong>{v.r2}</strong></span>
+                <span style={{ color: TXT2 }}>RMSE = <strong>{v.rmse}</strong></span>
+                <span style={{ color: TXT2 }}>{v.training_records?.toLocaleString()} records</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Version history table */}
+      <section style={{ background: WHITE, borderRadius: 16, padding: 24, border: "1px solid #e5e7eb" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ fontSize: 17, fontWeight: 700, color: TXT, margin: 0 }}>Model Version History</h3>
+          <span style={{ fontSize: 12, color: GRAY }}>{versions.length} version{versions.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {loadingVersions ? (
+          <p style={{ color: TXT2, fontSize: 14 }}>Loading…</p>
+        ) : versions.length === 0 ? (
+          <p style={{ color: TXT2, fontSize: 14 }}>No versions found. Trigger a retrain or check the backend connection.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                  {["Version ID", "Model", "R²", "RMSE", "Records", "Status", "Trained At"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, color: TXT2, fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {versions.map(v => (
+                  <tr key={v.version_id} style={{ borderBottom: "1px solid #f1f3f5", background: v.status === "active" ? "#f0fdf4" : WHITE }}>
+                    <td style={{ padding: "12px", fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: NAVY }}>{v.version_id}</td>
+                    <td style={{ padding: "12px" }}>
+                      <Badge label={v.model_type} color={v.model_type === "health" ? "#1e40af" : "#6b21a8"} bg={v.model_type === "health" ? "#dbeafe" : "#f3e8ff"} />
+                    </td>
+                    <td style={{ padding: "12px", fontFamily: "monospace" }}>{v.r2?.toFixed(3)}</td>
+                    <td style={{ padding: "12px", fontFamily: "monospace" }}>{v.rmse}</td>
+                    <td style={{ padding: "12px", color: TXT2 }}>{v.training_records?.toLocaleString()}</td>
+                    <td style={{ padding: "12px" }}>
+                      <Badge label={v.status} color={v.status === "active" ? "#166534" : "#6b7280"} bg={v.status === "active" ? "#dcfce7" : "#f3f4f6"} />
+                    </td>
+                    <td style={{ padding: "12px", color: TXT2, fontSize: 12 }}>
+                      {v.trained_at ? new Date(v.trained_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p style={{ fontSize: 11, color: GRAY, marginTop: 12 }}>
+          Source: <code>GET /api/vietnam/model-versions</code> · history persisted to <code>models/vietnam/version_history.json</code>
+        </p>
+      </section>
+    </div>
+  );
+}
+
 // ── Shared style tokens ───────────────────────────────────────────────────────
 
 const sectionStyle = {
@@ -581,6 +722,7 @@ export default function AdminConsole() {
         {/* Tab content */}
         {tab === "System Health"     && <SystemHealthTab apiKey={key} />}
         {tab === "Model Management"  && <ModelManagementTab />}
+        {tab === "Vietnam ML"        && <VietnamMLTab />}
         {tab === "Rules Management"  && <RulesManagementTab />}
         {tab === "Audit Log"         && <AuditLogTab />}
       </div>
