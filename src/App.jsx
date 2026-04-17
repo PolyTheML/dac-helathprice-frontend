@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import LifeInsurancePricer from "./LifeInsurancePricer";
 import ApplicationWizard from "./ApplicationWizard";
 import StatusTracker from "./StatusTracker";
+import UnderwriterDashboard from "./UnderwriterDashboard";
 
 
 const API_URL = "https://dac-healthprice-api.onrender.com";
@@ -122,7 +123,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const PAGES = ["Home", "Apply", "Track", "Life Insurance", "About", "Contact"];
+const PAGES = ["Home", "Apply", "Track", "Life Insurance", "UW Review", "About", "Contact"];
 
 export default function App() {
   const [page, setPage] = useState("Home");
@@ -229,6 +230,7 @@ export default function App() {
       {page === "Apply" && <ApplicationWizard />}
       {page === "Track" && <StatusTracker />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
+      {page === "UW Review" && <UnderwriterDashboard />}
       {page === "About" && <AboutPage />}
       {page === "Contact" && <ContactPage />}
 
