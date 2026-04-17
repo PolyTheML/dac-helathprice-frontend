@@ -16,6 +16,7 @@
 import { useState, useMemo } from "react";
 import DriftMonitor from "./DriftMonitor";
 import UnderwriterQueue from "./UnderwriterQueue";
+import ActuarialWorkbench from "./ActuarialWorkbench";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const LOCAL_ONLY = true; // flip to false once api/main.py is deployed on Render
@@ -269,7 +270,7 @@ function BreakdownBar({ label, value, total, color }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LifeInsurancePricer() {
-  const [tab, setTab] = useState("pricer"); // "pricer" | "dashboard"
+  const [tab, setTab] = useState("pricer"); // "pricer" | "dashboard" | "workbench"
 
   const [inp, setInp] = useState({
     age: 35,
@@ -313,7 +314,7 @@ export default function LifeInsurancePricer() {
       {/* Tab bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", gap: 0 }}>
-          {[["pricer", "Pricing Calculator"], ["dashboard", "Underwriter Dashboard"]].map(([key, label]) => (
+          {[["pricer", "Pricing Calculator"], ["workbench", "GLM Workbench"], ["dashboard", "Underwriter Dashboard"]].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -330,6 +331,9 @@ export default function LifeInsurancePricer() {
           ))}
         </div>
       </div>
+
+      {/* GLM Workbench tab */}
+      {tab === "workbench" && <ActuarialWorkbench />}
 
       {/* Dashboard tab */}
       {tab === "dashboard" && (
