@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ChatAdvisor from "./ChatAdvisor";
 
 const API_URL = "https://dac-healthprice-api.onrender.com";
 
@@ -510,8 +511,28 @@ function SuccessView({ caseId, onTrack }) {
   );
 }
 
+// ─── Case Tracking helpers ────────────────────────────────────────────────────
+function addBusinessDays(n) {
+  const d = new Date();
+  let added = 0;
+  while (added < n) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+  }
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+const NEXT_STEPS = {
+  "Received":         { msg: "Your documents are being verified by our team. This usually takes 1 business day.", showEta: true },
+  "Under Review":     { msg: "An underwriter is actively reviewing your application. You'll receive a decision within 3–5 business days.", showEta: true },
+  "Decision Pending": { msg: "The underwriter has completed their review. A final decision is being signed off by a senior team member — expect it very soon.", showEta: false },
+  "Approved":         { msg: "Your application has been approved. Your policy documents will be sent to your email and phone number shortly.", showEta: false },
+  "Declined":         { msg: "We were unable to approve your application at this time. Our team will contact you to explain the reasons and discuss any alternatives.", showEta: false },
+  "On Hold":          { msg: "Additional information is required. Our team will contact you within 1 business day to let you know what's needed.", showEta: false },
+};
+
 // ─── Case Tracking View ──────────────────────────────────────────────────────
-function TrackView({ prefillRef }) {
+function TrackView({ prefillRef, onOpenChat, onSetContext }) {
   const [ref, setRef]       = useState(prefillRef || "");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -527,15 +548,20 @@ function TrackView({ prefillRef }) {
         signal: AbortSignal.timeout(15000),
       });
       if (res.ok) {
-        setResult(await res.json());
+        const data = await res.json();
+        setResult(data);
+        onSetContext?.({ case_id: ref.trim(), case_status: data.status });
       } else if (res.status === 404) {
         setError("Case not found. Check your reference number and try again.");
       } else {
-        // Demo fallback
-        setResult(demoStatus(ref.trim()));
+        const data = demoStatus(ref.trim());
+        setResult(data);
+        onSetContext?.({ case_id: ref.trim(), case_status: data.status });
       }
     } catch {
-      setResult(demoStatus(ref.trim()));
+      const data = demoStatus(ref.trim());
+      setResult(data);
+      onSetContext?.({ case_id: ref.trim(), case_status: data.status });
     } finally {
       setLoading(false);
     }
@@ -617,6 +643,32 @@ function TrackView({ prefillRef }) {
                   <p style={{ fontSize: 13, color: TXT, lineHeight: 1.6 }}>{result.message}</p>
                 </div>
               )}
+            </div>
+          </FadeIn>
+
+          {NEXT_STEPS[result.status] && (
+            <FadeIn delay={0.2}>
+              <div style={{ background: WHITE, borderRadius: 16, padding: "24px 28px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", marginTop: 16 }}>
+                <p style={{ fontSize: 11, color: GOLD_D, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>What happens next</p>
+                <p style={{ fontSize: 14, color: TXT2, lineHeight: 1.7, margin: 0 }}>{NEXT_STEPS[result.status].msg}</p>
+                {NEXT_STEPS[result.status].showEta && (
+                  <p style={{ fontSize: 13, color: TXT, fontWeight: 600, marginTop: 12, marginBottom: 0 }}>
+                    Expected decision by: <span style={{ color: NAVY }}>{addBusinessDays(5)}</span>
+                  </p>
+                )}
+              </div>
+            </FadeIn>
+          )}
+
+          <FadeIn delay={0.3}>
+            <div style={{ background: WHITE, borderRadius: 16, padding: "20px 28px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={{ fontSize: 14, color: TXT2, margin: 0 }}>Have questions about your case?</p>
+              <button
+                onClick={onOpenChat}
+                style={{ padding: "9px 20px", borderRadius: 8, background: NAVY, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: WHITE, fontFamily: "inherit", whiteSpace: "nowrap" }}
+              >
+                Ask our advisor →
+              </button>
             </div>
           </FadeIn>
         )}
@@ -747,10 +799,12 @@ function HomeView({ onApply, onTrack }) {
 
 // ─── Portal root ─────────────────────────────────────────────────────────────
 export default function PublicPortal() {
-  const [view, setView]       = useState("home");
-  const [caseId, setCaseId]   = useState(null);
+  const [view, setView]         = useState("home");
+  const [caseId, setCaseId]     = useState(null);
   const [trackRef, setTrackRef] = useState("");
-  const [scrollY, setScrollY] = useState(0);
+  const [scrollY, setScrollY]   = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [advisorCtx, setAdvisorCtx] = useState({});
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);
@@ -808,7 +862,9 @@ export default function PublicPortal() {
       {view === "home"    && <HomeView    onApply={goApply} onTrack={() => goTrack()} />}
       {view === "apply"   && <ApplyView   onDone={handleSubmitDone} />}
       {view === "success" && <SuccessView caseId={caseId} onTrack={goTrack} />}
-      {view === "track"   && <TrackView   prefillRef={trackRef} />}
+      {view === "track"   && <TrackView   prefillRef={trackRef} onOpenChat={() => setChatOpen(true)} onSetContext={setAdvisorCtx} />}
+
+      <ChatAdvisor open={chatOpen} onOpenChange={setChatOpen} context={advisorCtx} />
 
       {/* Footer */}
       <footer style={{ background: NAVY_D, color: GRAY, padding: "40px 24px 28px" }}>
