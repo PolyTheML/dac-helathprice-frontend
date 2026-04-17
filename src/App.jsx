@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import PricingWizard from "./PricingWizard";
 import LifeInsurancePricer from "./LifeInsurancePricer";
+import ApplicationWizard from "./ApplicationWizard";
+import StatusTracker from "./StatusTracker";
 
 
 const API_URL = "https://dac-healthprice-api.onrender.com";
@@ -121,7 +122,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const PAGES = ["Home", "Pricing", "Life Insurance", "About", "Contact"];
+const PAGES = ["Home", "Apply", "Track", "Life Insurance", "About", "Contact"];
 
 export default function App() {
   const [page, setPage] = useState("Home");
@@ -208,7 +209,7 @@ export default function App() {
             <div style={{ display:"flex", gap:28 }}>
               {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
             </div>
-            <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("Pricing"); window.scrollTo(0,0); }}>Get a quote</button>
+            <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("Apply"); window.scrollTo(0,0); }}>Get a quote</button>
             <button className="outline-btn" style={{ padding:"8px 20px", fontSize:13 }} onClick={() => { sessionStorage.removeItem("dac_authed"); setAuthed(false); }}>Sign out</button>
           </div>
           {/* Hamburger */}
@@ -220,12 +221,13 @@ export default function App() {
       {menuOpen && (
         <div className="mobile-menu">
           {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
-          <button className="gold-btn" onClick={() => { setPage("Pricing"); setMenuOpen(false); window.scrollTo(0,0); }}>Get a quote</button>
+          <button className="gold-btn" onClick={() => { setPage("Life Insurance"); setMenuOpen(false); window.scrollTo(0,0); }}>Get a quote</button>
         </div>
       )}
 
-      {page === "Home" && <HomePage onGetQuote={() => { setPage("Pricing"); window.scrollTo(0, 0); }} />}
-      {page === "Pricing" && <PricingPage />}
+      {page === "Home" && <HomePage onGetQuote={() => { setPage("Apply"); window.scrollTo(0, 0); }} />}
+      {page === "Apply" && <ApplicationWizard />}
+      {page === "Track" && <StatusTracker />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "About" && <AboutPage />}
       {page === "Contact" && <ContactPage />}
@@ -250,7 +252,7 @@ export default function App() {
               {[
                 { label: "About DAC", go: "About" },
                 { label: "Contact Us", go: "Contact" },
-                { label: "Get a Quote", go: "Pricing" },
+                { label: "Get a Quote", go: "Apply" },
               ].map(s => <p key={s.label} onClick={() => { setPage(s.go); window.scrollTo(0,0); }} style={{ fontSize: 14, marginBottom: 10, cursor: "pointer" }}>{s.label}</p>)}
             </div>
             <div>
@@ -538,48 +540,6 @@ function HomePage({ onGetQuote }) {
         </FadeIn>
       </section>
     </>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// PRICING PAGE (placeholder — your existing wizard goes here)
-// ═══════════════════════════════════════════════════════════════════════════════
-function PricingPage() {  
-    return (
-      <section style={{ paddingTop: 80 }}>
-        <PricingWizard />
-      </section>
-    );
-  // ─────────────────────────────────────────────────────────────────────────
-
-  return (
-    <section style={{ paddingTop: 100, paddingBottom: 80, minHeight: "100vh", background: "#f8f9fa" }}>
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px", textAlign: "center" }}>
-        <span style={{ color: GOLD_D, fontSize: 14, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase" }}>Pricing Engine</span>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, fontWeight: 700, marginTop: 12, marginBottom: 16, color: TXT }}>Get your personalized quote</h2>
-        <p style={{ color: TXT2, fontSize: 16, marginBottom: 40 }}>Your 4-step wizard (Profile → Health → Plan → Quote) will render here.</p>
-        <div style={{ background: WHITE, borderRadius: 16, padding: 40, border: "1px solid #e5e7eb", textAlign: "left" }}>
-          <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-            {["Profile", "Health", "Plan", "Quote"].map((s, i) => (
-              <div key={s} style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 8, background: i === 0 ? NAVY : "#f1f3f5", color: i === 0 ? GOLD : TXT2, fontSize: 13, fontWeight: 600 }}>{s}</div>
-            ))}
-          </div>
-          <p style={{ color: TXT2, fontSize: 15, lineHeight: 1.8, marginBottom: 20 }}>
-            To integrate your existing pricing wizard into this landing page:
-          </p>
-          <div style={{ background: "#f8f9fa", borderRadius: 8, padding: 16, fontFamily: "monospace", fontSize: 13, lineHeight: 1.8, color: TXT }}>
-            <div>1. Rename <b>dac-healthprice-v2.jsx</b> → <b>PricingWizard.jsx</b></div>
-            <div>2. Change its export: <code>export default function PricingWizard()</code></div>
-            <div>3. Remove the navbar from PricingWizard (it's in the landing page now)</div>
-            <div>4. Import in this file: <code>import PricingWizard from "./PricingWizard"</code></div>
-            <div>5. Replace PricingPage body with: <code>{"<PricingWizard />"}</code></div>
-          </div>
-          <div style={{ marginTop: 20, padding: 16, background: `rgba(245,197,99,0.1)`, borderRadius: 12, borderLeft: `3px solid ${GOLD}` }}>
-            <p style={{ fontSize: 14, color: TXT, margin: 0 }}>Both files are in your outputs. The wizard connects to your Render backend at <code>https://dac-healthprice-api.onrender.com</code></p>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
