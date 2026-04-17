@@ -609,6 +609,7 @@ function TrackView({ prefillRef, onOpenChat, onSetContext }) {
         </FadeIn>
 
         {result && (
+          <>
           <FadeIn delay={0.1}>
             <div style={{ background: WHITE, borderRadius: 20, padding: "36px 40px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
@@ -683,6 +684,7 @@ function TrackView({ prefillRef, onOpenChat, onSetContext }) {
               </button>
             </div>
           </FadeIn>
+          </>
         )}
       </div>
     </section>
