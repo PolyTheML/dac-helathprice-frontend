@@ -607,6 +607,418 @@ function AssumptionsTab({ profile, coeff, setCoeff, isDirty, resetCoeff }) {
   );
 }
 
+// ── Vietnam ML: constants ─────────────────────────────────────────────────────
+const VN_API = "https://dac-healthprice-api.onrender.com";
+
+const VN_REGIONS = [
+  "Central Highlands", "Mekong Delta", "North Central", "Northeast",
+  "Northwest", "Red River Delta", "South Central Coast", "Southeast",
+];
+const VN_OCCUPATIONS = [
+  "Construction Worker", "Factory Worker", "Farmer", "Merchant/Trader",
+  "Office Worker", "Retired", "Service Industry",
+];
+const VN_CONDITIONS = ["Hypertension", "Diabetes", "Heart Disease", "COPD/Asthma", "Arthritis"];
+
+const DEFAULT_VN_PROFILE = {
+  age: 35,
+  bmi: 22.0,
+  is_smoking: 0,
+  is_exercise: 1,
+  has_family_history: 0,
+  monthly_income_millions_vnd: 15.0,
+  region: "Southeast",
+  occupation: "Office Worker",
+  pre_existing_conditions: [],
+};
+
+function ToggleField({ label, value, onChange, onLabel = "Yes", offLabel = "No" }) {
+  return (
+    <Field label={label}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={() => onChange(1)}
+          style={{
+            flex: 1, padding: "7px 0", borderRadius: 7, fontSize: 12, fontWeight: 600,
+            border: `1.5px solid ${value ? NAVY : "#e5e7eb"}`,
+            background: value ? NAVY : WHITE, color: value ? WHITE : TXT2,
+            cursor: "pointer", fontFamily: "inherit",
+          }}
+        >{onLabel}</button>
+        <button
+          onClick={() => onChange(0)}
+          style={{
+            flex: 1, padding: "7px 0", borderRadius: 7, fontSize: 12, fontWeight: 600,
+            border: `1.5px solid ${!value ? ERR : "#e5e7eb"}`,
+            background: !value ? "#fef2f2" : WHITE, color: !value ? ERR : TXT2,
+            cursor: "pointer", fontFamily: "inherit",
+          }}
+        >{offLabel}</button>
+      </div>
+    </Field>
+  );
+}
+
+// SHAP waterfall bar — scales relative to maxAbs in the group
+function ShapBar({ feature, shap_value, direction, maxAbs }) {
+  const isRisk   = direction === "increases_risk";
+  const color    = isRisk ? ERR : OK;
+  const bg       = isRisk ? "#fef2f2" : "#ecfdf5";
+  const barWidth = maxAbs > 0 ? Math.min((Math.abs(shap_value) / maxAbs) * 100, 100) : 0;
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 12, color: TXT, fontWeight: 500 }}>{feature}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: TXT2 }}>
+            {shap_value > 0 ? "+" : ""}{shap_value.toFixed(4)}
+          </span>
+          <span style={{
+            fontSize: 11, fontWeight: 600, color, background: bg,
+            borderRadius: 4, padding: "1px 7px",
+          }}>
+            {isRisk ? "risk +" : "risk -"}
+          </span>
+        </div>
+      </div>
+      <div style={{ height: 7, background: "#f3f4f6", borderRadius: 4, overflow: "hidden" }}>
+        <div style={{
+          height: "100%", width: `${barWidth}%`,
+          background: color, borderRadius: 4,
+          transition: "width 0.35s ease",
+        }} />
+      </div>
+    </div>
+  );
+}
+
+function ModelPanel({ title, data, accent }) {
+  if (!data) return null;
+  const r2H = data.r2_health     != null ? (data.r2_health * 100).toFixed(1)     : "—";
+  const r2M = data.r2_mortality  != null ? (data.r2_mortality * 100).toFixed(1)  : "—";
+
+  return (
+    <Card style={{
+      border: accent ? `2px solid ${NAVY}` : "1.5px solid #e5e7eb",
+      background: accent ? "#f8faff" : WHITE,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{title}</div>
+          <div style={{ fontSize: 10, color: TXT2, marginTop: 2, maxWidth: 220 }}>{data.method}</div>
+        </div>
+        {accent && (
+          <span style={{
+            background: GOLD, color: "#7c2d12", borderRadius: 20,
+            padding: "2px 10px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap",
+          }}>
+            HIGHER ACCURACY
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+        <div style={{ background: accent ? NAVY : LTGRAY, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: accent ? "rgba(255,255,255,0.6)" : TXT2, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+            Health Score
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: accent ? WHITE : NAVY }}>
+            {data.health_score}<span style={{ fontSize: 13, fontWeight: 400, opacity: 0.7 }}>/100</span>
+          </div>
+        </div>
+        <div style={{ background: LTGRAY, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: TXT2, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+            Mortality Mult.
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: NAVY }}>
+            x{data.mortality_multiplier}
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        background: "#f3f4f6", borderRadius: 8, padding: "10px 12px",
+        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
+      }}>
+        {[
+          ["R² Health", `${r2H}%`],
+          ["R² Mortality", `${r2M}%`],
+          ["RMSE Health", data.rmse_health?.toFixed(2) ?? "—"],
+          ["RMSE Mortality", data.rmse_mortality?.toFixed(3) ?? "—"],
+        ].map(([lbl, val]) => (
+          <div key={lbl}>
+            <div style={{ fontSize: 10, color: TXT2, marginBottom: 1 }}>{lbl}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{val}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ── Tab: Vietnam ML ───────────────────────────────────────────────────────────
+function VietnamTab() {
+  const [vp, setVP]         = useState(DEFAULT_VN_PROFILE);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState(null);
+  const [activeShap, setActiveShap] = useState("health");
+
+  const setF = (k, v) => setVP(p => ({ ...p, [k]: v }));
+
+  const toggleCondition = (cond) => {
+    setVP(p => {
+      const existing = p.pre_existing_conditions || [];
+      return {
+        ...p,
+        pre_existing_conditions: existing.includes(cond)
+          ? existing.filter(c => c !== cond)
+          : [...existing, cond],
+      };
+    });
+  };
+
+  const runPricing = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch(`${VN_API}/api/vietnam/price`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(vp),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.detail || `HTTP ${r.status}`);
+      }
+      setResult(await r.json());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sel = { ...inputStyle, fontSize: 13 };
+
+  const shapData = result
+    ? (activeShap === "health"
+        ? result.xgboost.shap_health_top3
+        : result.xgboost.shap_mortality_top3)
+    : [];
+  const maxAbs = shapData.length
+    ? Math.max(...shapData.map(s => Math.abs(s.shap_value)), 0.0001)
+    : 0.0001;
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 24, alignItems: "start" }}>
+
+      {/* ── Left: input form ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <Card>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <span style={{
+              background: "#dc2626", color: WHITE, borderRadius: 6,
+              padding: "2px 8px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+            }}>VN</span>
+            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Vietnam Applicant Profile</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+            <Field label="Age">
+              <input type="number" min={18} max={80} value={vp.age}
+                onChange={e => setF("age", Number(e.target.value))} style={inputStyle} />
+            </Field>
+            <Field label="BMI">
+              <input type="number" min={14} max={50} step={0.1} value={vp.bmi}
+                onChange={e => setF("bmi", parseFloat(e.target.value) || 22)} style={inputStyle} />
+            </Field>
+          </div>
+
+          <Field label="Monthly Income (Million VND)">
+            <input type="number" min={0} step={1} value={vp.monthly_income_millions_vnd}
+              onChange={e => setF("monthly_income_millions_vnd", parseFloat(e.target.value) || 0)}
+              style={inputStyle} />
+          </Field>
+
+          <Field label="Region">
+            <select value={vp.region} onChange={e => setF("region", e.target.value)} style={sel}>
+              {VN_REGIONS.map(r => <option key={r}>{r}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Occupation">
+            <select value={vp.occupation} onChange={e => setF("occupation", e.target.value)} style={sel}>
+              {VN_OCCUPATIONS.map(o => <option key={o}>{o}</option>)}
+            </select>
+          </Field>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 8px" }}>
+            <ToggleField label="Smoker"    value={vp.is_smoking}        onChange={v => setF("is_smoking", v)} />
+            <ToggleField label="Exercises" value={vp.is_exercise}       onChange={v => setF("is_exercise", v)} />
+            <ToggleField label="Family Hx" value={vp.has_family_history} onChange={v => setF("has_family_history", v)} />
+          </div>
+        </Card>
+
+        <Card>
+          <SectionTitle>Pre-existing Conditions</SectionTitle>
+          {VN_CONDITIONS.map(c => {
+            const checked = (vp.pre_existing_conditions || []).includes(c);
+            return (
+              <div
+                key={c}
+                onClick={() => toggleCondition(c)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 10px", marginBottom: 6, borderRadius: 8,
+                  border: `1.5px solid ${checked ? NAVY : "#e5e7eb"}`,
+                  background: checked ? "#eff6ff" : WHITE,
+                  cursor: "pointer", fontSize: 13,
+                  color: checked ? NAVY : TXT, fontWeight: checked ? 600 : 400,
+                }}
+              >
+                <span style={{
+                  width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                  border: `2px solid ${checked ? NAVY : "#d1d5db"}`,
+                  background: checked ? NAVY : WHITE,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {checked && <span style={{ color: WHITE, fontSize: 10, lineHeight: 1 }}>x</span>}
+                </span>
+                {c}
+              </div>
+            );
+          })}
+        </Card>
+
+        <button
+          onClick={runPricing}
+          disabled={loading}
+          style={{
+            width: "100%", padding: "12px", borderRadius: 10,
+            background: loading ? "#6b7280" : NAVY, color: WHITE,
+            border: "none", fontSize: 14, fontWeight: 700,
+            cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit",
+          }}
+        >
+          {loading ? "Running..." : "Run Dual Pricing"}
+        </button>
+
+        {loading && (
+          <div style={{ fontSize: 11, color: TXT2, textAlign: "center", padding: "4px 0" }}>
+            First call wakes the Render server (~30s). Subsequent calls are fast.
+          </div>
+        )}
+
+        {error && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: ERR, fontSize: 12 }}>
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* ── Right: results ── */}
+      <div>
+        {!result && !loading && (
+          <Card style={{ textAlign: "center", padding: 56 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: NAVY, marginBottom: 8 }}>
+              GLM vs XGBoost — Side-by-Side Comparison
+            </div>
+            <div style={{ fontSize: 13, color: TXT2, marginBottom: 20 }}>
+              Configure a Vietnam applicant and click "Run Dual Pricing" to compare models and see SHAP risk drivers.
+            </div>
+            <div style={{ display: "inline-flex", gap: 24, fontSize: 12, color: TXT2 }}>
+              <span>Health score (0-100)</span>
+              <span>Mortality multiplier</span>
+              <span>R² / RMSE metrics</span>
+              <span>SHAP top-3 drivers</span>
+            </div>
+          </Card>
+        )}
+
+        {loading && (
+          <Card style={{ textAlign: "center", padding: 56 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: "50%",
+              border: `4px solid #e5e7eb`, borderTopColor: NAVY,
+              margin: "0 auto 16px",
+              animation: "spin 0.8s linear infinite",
+            }} />
+            <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 4 }}>Pricing both models...</div>
+            <div style={{ fontSize: 12, color: TXT2 }}>GLM inference + XGBoost + SHAP TreeExplainer</div>
+          </Card>
+        )}
+
+        {result && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* R² gain summary banner */}
+            <Card style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "16px 24px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: TXT2, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
+                XGBoost vs GLM — Accuracy Gain
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, textAlign: "center" }}>
+                {[
+                  ["R² Gain (Health)", `+${(result.comparison.xgb_r2_gain_health * 100).toFixed(1)}pp`, OK],
+                  ["R² Gain (Mortality)", `+${(result.comparison.xgb_r2_gain_mortality * 100).toFixed(1)}pp`, OK],
+                  ["Health Score Delta", result.comparison.health_score_diff.toFixed(1), NAVY],
+                  ["Mortality Delta", result.comparison.mortality_diff.toFixed(4), NAVY],
+                ].map(([lbl, val, col]) => (
+                  <div key={lbl}>
+                    <div style={{ fontSize: 10, color: TXT2, marginBottom: 4 }}>{lbl}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: col }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Side-by-side model panels */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <ModelPanel title="GLM" data={result.glm} accent={false} />
+              <ModelPanel title="XGBoost" data={result.xgboost} accent={true} />
+            </div>
+
+            {/* SHAP waterfall */}
+            {shapData.length > 0 && (
+              <Card>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <SectionTitle>SHAP — Top Risk Drivers (XGBoost)</SectionTitle>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[["health", "Health Score"], ["mortality", "Mortality"]].map(([k, lbl]) => (
+                      <button key={k} onClick={() => setActiveShap(k)} style={{
+                        padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                        border: `1.5px solid ${activeShap === k ? NAVY : "#e5e7eb"}`,
+                        background: activeShap === k ? NAVY : WHITE,
+                        color: activeShap === k ? WHITE : TXT2,
+                        cursor: "pointer", fontFamily: "inherit",
+                      }}>{lbl}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 11, color: TXT2, marginBottom: 14, padding: "8px 12px", background: "#eff6ff", borderRadius: 6, border: "1px solid #dbeafe" }}>
+                  {activeShap === "health"
+                    ? "Health score: higher = healthier. Red bar = factor lowers health score (more risk). Green = improves score."
+                    : "Mortality multiplier: higher = more risk. Red = factor raises mortality risk. Green = reduces it."}
+                </div>
+
+                {shapData.map((s, i) => (
+                  <ShapBar key={i} feature={s.feature} shap_value={s.shap_value} direction={s.direction} maxAbs={maxAbs} />
+                ))}
+
+                <div style={{ marginTop: 10, fontSize: 10, color: "#9ca3af", fontStyle: "italic" }}>
+                  SHAP via TreeExplainer — marginal contribution of each feature to the model output.
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 export default function ActuarialWorkbench() {
   const [tab, setTab] = useState("attribution");
@@ -641,6 +1053,7 @@ export default function ActuarialWorkbench() {
     ["attribution", "Attribution"],
     ["sensitivity",  "Sensitivity"],
     ["assumptions",  "Assumptions Editor"],
+    ["vietnam",      "Vietnam ML"],
   ];
 
   return (
@@ -650,15 +1063,29 @@ export default function ActuarialWorkbench() {
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ display: "inline-block", background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.3)", borderRadius: 20, padding: "3px 12px", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>
-              HEALTH GLM — WORKBENCH
-            </div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Actuarial Pricing Workbench</h2>
-            <p style={{ color: TXT2, fontSize: 13, marginTop: 4 }}>
-              Poisson-Gamma GLM v2.3 · {Object.keys(DEFAULT_COEFF.age_factors).length} age bands · {Object.keys(DEFAULT_COEFF.region_factors).length} regions
-            </p>
+            {tab === "vietnam" ? (
+              <>
+                <div style={{ display: "inline-block", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: 20, padding: "3px 12px", fontSize: 11, color: "#dc2626", fontWeight: 600, marginBottom: 8 }}>
+                  VIETNAM CASE STUDY — ML PRICING
+                </div>
+                <h2 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>GLM vs XGBoost Comparison</h2>
+                <p style={{ color: TXT2, fontSize: 13, marginTop: 4 }}>
+                  OLS/Gamma GLM · XGBoost (n=300) · SHAP risk attribution · Vietnam health + life
+                </p>
+              </>
+            ) : (
+              <>
+                <div style={{ display: "inline-block", background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.3)", borderRadius: 20, padding: "3px 12px", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>
+                  HEALTH GLM — WORKBENCH
+                </div>
+                <h2 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Actuarial Pricing Workbench</h2>
+                <p style={{ color: TXT2, fontSize: 13, marginTop: 4 }}>
+                  Poisson-Gamma GLM v2.3 · {Object.keys(DEFAULT_COEFF.age_factors).length} age bands · {Object.keys(DEFAULT_COEFF.region_factors).length} regions
+                </p>
+              </>
+            )}
           </div>
-          {isDirty && (
+          {isDirty && tab !== "vietnam" && (
             <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#92400e", fontWeight: 600 }}>
               Unsaved edits — assumptions differ from v2.3
             </div>
@@ -697,16 +1124,21 @@ export default function ActuarialWorkbench() {
           resetCoeff={resetCoeff}
         />
       )}
+      {tab === "vietnam" && <VietnamTab />}
 
-      {/* Audit footer */}
-      <div style={{ marginTop: 32, padding: "12px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 11, color: "#92400e" }}>
-        <strong>Workbench Note:</strong> Assumptions edits are session-only and do not affect the production model at dac-healthprice-api.onrender.com. To promote revised assumptions to production, update COEFF in <code>main.py</code> and redeploy.
-      </div>
+      {/* Audit footer — Cambodia workbench only */}
+      {tab !== "vietnam" && (
+        <div style={{ marginTop: 32, padding: "12px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 11, color: "#92400e" }}>
+          <strong>Workbench Note:</strong> Assumptions edits are session-only and do not affect the production model at dac-healthprice-api.onrender.com. To promote revised assumptions to production, update COEFF in <code>main.py</code> and redeploy.
+        </div>
+      )}
 
       <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 900px) {
           div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
           div[style*="grid-template-columns: 380px 1fr"] { grid-template-columns: 1fr !important; }
+          div[style*="grid-template-columns: 320px 1fr"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
