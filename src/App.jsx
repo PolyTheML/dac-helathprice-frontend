@@ -5,31 +5,34 @@ import StatusTracker from "./StatusTracker";
 import UnderwriterDashboard from "./UnderwriterDashboard";
 import AdminConsole from "./AdminConsole";
 import PublicPortal from "./portal/PublicPortal";
-
-
-const API_URL = "https://dac-healthprice-api.onrender.com";
-
-// ─── Internal users ──────────────────────────────────────────────────────────
-const USERS = [
-  { username: "admin",   password: "dac2026!" },
-  { username: "radet",   password: "dac2026!" },
-  { username: "analyst", password: "dac2026!" },
-];
+import { API_URL, clearAuth, getRole, getUser } from "./auth";
 
 function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const match = USERS.find(u => u.username === username.trim().toLowerCase() && u.password === password);
-    if (match) {
-      sessionStorage.setItem("dac_authed", "1");
-      onLogin();
-    } else {
-      setError("Invalid credentials.");
-      setPassword("");
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim().toLowerCase(), password }),
+      });
+      if (!res.ok) { setError("Invalid credentials."); setPassword(""); return; }
+      const { access_token, role, username: user } = await res.json();
+      sessionStorage.setItem("dac_token", access_token);
+      sessionStorage.setItem("dac_role",  role);
+      sessionStorage.setItem("dac_user",  user);
+      onLogin(role);
+    } catch {
+      setError("Unable to reach server. Try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -60,8 +63,8 @@ function LoginPage({ onLogin }) {
             />
           </div>
           {error && <div style={{ fontSize: 13, color: "#ef4444", marginBottom: 16, textAlign: "center" }}>{error}</div>}
-          <button type="submit" style={{ width: "100%", padding: "12px", borderRadius: 8, background: "#f5a623", color: "#0d2b7a", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-            Sign in
+          <button type="submit" disabled={loading} style={{ width: "100%", padding: "12px", borderRadius: 8, background: "#f5a623", color: "#0d2b7a", border: "none", fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
       </div>
@@ -125,7 +128,12 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "UW Review", "Admin", "Portal", "About", "Contact"];
+const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "UW Review", "Admin", "Portal", "About", "Contact"];
+const ROLE_PAGES = {
+  admin:       ALL_PAGES,
+  underwriter: ALL_PAGES.filter(p => p !== "Admin"),
+  analyst:     ALL_PAGES.filter(p => p !== "Admin" && p !== "UW Review"),
+};
 
 export default function App() {
   // Public portal — no staff auth required
@@ -134,7 +142,8 @@ export default function App() {
   const [page, setPage] = useState("Home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem("dac_authed") === "1");
+  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem("dac_token"));
+  const [role,   setRole]   = useState(() => getRole() || "");
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);
@@ -146,7 +155,7 @@ export default function App() {
     fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(30000) }).catch(() => {});
   }, []);
 
-  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />;
+  if (!authed) return <LoginPage onLogin={(r) => { setAuthed(true); setRole(r); }} />;
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", color: TXT, background: WHITE, minHeight: "100vh" }}>
@@ -213,10 +222,10 @@ export default function App() {
           {/* Desktop nav */}
           <div className="desktop-nav">
             <div style={{ display:"flex", gap:28 }}>
-              {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
+              {(ROLE_PAGES[role] || ALL_PAGES).map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
             </div>
             <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("New Case"); window.scrollTo(0,0); }}>New Case</button>
-            <button className="outline-btn" style={{ padding:"8px 20px", fontSize:13 }} onClick={() => { sessionStorage.removeItem("dac_authed"); setAuthed(false); }}>Sign out</button>
+            <button className="outline-btn" style={{ padding:"8px 20px", fontSize:13 }} onClick={() => { clearAuth(); setAuthed(false); setRole(""); }}>Sign out</button>
           </div>
           {/* Hamburger */}
           <button className={`hamburger ${menuOpen?"open":""}`} onClick={() => setMenuOpen(o => !o)} aria-label="Toggle menu">
@@ -226,7 +235,7 @@ export default function App() {
       </nav>
       {menuOpen && (
         <div className="mobile-menu">
-          {PAGES.map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
+          {(ROLE_PAGES[role] || ALL_PAGES).map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
           <button className="gold-btn" onClick={() => { setPage("New Case"); setMenuOpen(false); window.scrollTo(0,0); }}>New Case</button>
         </div>
       )}

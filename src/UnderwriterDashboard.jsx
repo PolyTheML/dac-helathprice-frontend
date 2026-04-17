@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const API_URL = "https://dac-healthprice-api.onrender.com";
+import { API_URL, authFetch } from './auth';
 const NAVY = "#0d2b7a";
 const GOLD_D = "#e67e00";
 const GRAY = "#94a3b8";
@@ -106,7 +105,7 @@ export default function UnderwriterDashboard() {
     setLoading(true);
     try {
       const statusParam = filter === "pending" ? "submitted,in_review" : filter;
-      const r = await fetch(`${API_URL}/api/v1/applications?status=${statusParam}`, { signal: AbortSignal.timeout(8000) });
+      const r = await authFetch(`${API_URL}/api/v1/applications?status=${statusParam}`, { signal: AbortSignal.timeout(8000) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const enriched = (data.applications || []).map(c => ({
@@ -153,7 +152,7 @@ export default function UnderwriterDashboard() {
     setSubmitting(true);
     try {
       if (!usingMock) {
-        const r = await fetch(`${API_URL}/api/v1/applications/${selected.id}/decision`, {
+        const r = await authFetch(`${API_URL}/api/v1/applications/${selected.id}/decision`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ outcome: decision.outcome, notes: decision.notes, reviewer_id: decision.reviewer }),

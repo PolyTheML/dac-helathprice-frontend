@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { authFetch } from './auth';
 
 export default function UnderwriterQueue({ backendUrl }) {
   const [queue, setQueue]       = useState([]);
@@ -9,7 +10,7 @@ export default function UnderwriterQueue({ backendUrl }) {
 
   const fetchQueue = useCallback(() => {
     setLoading(true);
-    fetch(`${backendUrl}/dashboard/stats`)
+    authFetch(`${backendUrl}/dashboard/stats`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -24,7 +25,7 @@ export default function UnderwriterQueue({ backendUrl }) {
   async function handleReview(caseId, approved) {
     setActing(caseId);
     try {
-      const res = await fetch(`${backendUrl}/cases/${caseId}/review`, {
+      const res = await authFetch(`${backendUrl}/cases/${caseId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
