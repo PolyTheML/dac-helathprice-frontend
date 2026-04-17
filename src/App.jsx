@@ -135,6 +135,10 @@ export default function App() {
     return () => window.removeEventListener("scroll", h);
   }, []);
 
+  useEffect(() => {
+    fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(30000) }).catch(() => {});
+  }, []);
+
   if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />;
 
   return (

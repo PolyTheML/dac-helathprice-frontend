@@ -62,6 +62,34 @@ function getDisplayRange(exactMonthly) {
   return { lo, hi, text: `$${lo.toLocaleString()} – $${hi.toLocaleString()}` };
 }
 
+// ─── Escalation cost-factor calculation (shared by localPrice + calculate) ───
+function computeEscalation(baseTotal, ipd_tier) {
+  const r = 0.05, d = 0.06, n = 20, cap = 2.5, util = 0.20;
+  const pvFlat = Array.from({ length: n }, (_, i) => 1 / (1 + d) ** (i + 1)).reduce((a, b) => a + b, 0);
+  const pvEsc  = Array.from({ length: n }, (_, i) => Math.min((1 + r) ** i, cap) / (1 + d) ** (i + 1)).reduce((a, b) => a + b, 0);
+  const costFactor = (pvEsc / pvFlat - 1) * util;
+  const escalatedAnnual = Math.round(baseTotal * (1 + costFactor) * 100) / 100;
+  const baseCoverage = parseFloat((TIERS[ipd_tier]?.limit || "$50,000").replace(/[$,]/g, "")) || 50000;
+  const projections = Array.from({ length: n }, (_, i) => ({
+    year: i + 1,
+    coverage_multiple: Math.round(Math.min((1 + r) ** i, cap) * 10000) / 10000,
+    coverage_amount: Math.round(Math.min((1 + r) ** i, cap) * baseCoverage),
+    cumulative_escalation_pct: Math.round((Math.min((1 + r) ** i, cap) - 1) * 1000) / 10,
+    loyalty_bonus: i + 1 === 10 ? Math.round(escalatedAnnual * 0.25) : i + 1 === 20 ? Math.round(escalatedAnnual * 0.50) : 0,
+  }));
+  return {
+    enabled: true,
+    cost_factor: Math.round(costFactor * 10000) / 10000,
+    cost_factor_pct: `${(costFactor * 100).toFixed(1)}%`,
+    base_annual_premium: baseTotal,
+    escalated_annual_premium: escalatedAnnual,
+    escalated_monthly_premium: Math.round(escalatedAnnual / 12 * 100) / 100,
+    base_coverage: baseCoverage,
+    terminal_coverage: baseCoverage * cap,
+    projections,
+  };
+}
+
 // ─── GLM-style log-linear fallback pricing (actuarially consistent) ──────────
 // Uses log-linear structure mirroring the Poisson backend model.
 function localPrice(inp) {
@@ -108,35 +136,10 @@ function localPrice(inp) {
   total = Math.round(total * ff * 100) / 100;
 
   // ── Escalation product calculation ──────────────────────────────────────────
-  // Cost factor: (PV(escalating) / PV(flat) - 1) × cap_utilization
-  // Default params: r=5%, d=6%, n=20yr, cap=2.5×, util=20% → ~10.1% markup
   let escalation_details = null;
   if (inp.include_escalation) {
-    const r = 0.05, d = 0.06, n = 20, cap = 2.5, util = 0.20;
-    const pvFlat = Array.from({ length: n }, (_, i) => 1 / (1 + d) ** (i + 1)).reduce((a, b) => a + b, 0);
-    const pvEsc  = Array.from({ length: n }, (_, i) => Math.min((1 + r) ** i, cap) / (1 + d) ** (i + 1)).reduce((a, b) => a + b, 0);
-    const costFactor = (pvEsc / pvFlat - 1) * util;
-    const escalatedAnnual = Math.round(total * (1 + costFactor) * 100) / 100;
-    const baseCoverage = parseFloat((TIERS[inp.ipd_tier]?.limit || "$50,000").replace(/[$,]/g, "")) || 50000;
-    const projections = Array.from({ length: n }, (_, i) => ({
-      year: i + 1,
-      coverage_multiple: Math.round(Math.min((1 + r) ** i, cap) * 10000) / 10000,
-      coverage_amount: Math.round(Math.min((1 + r) ** i, cap) * baseCoverage),
-      cumulative_escalation_pct: Math.round((Math.min((1 + r) ** i, cap) - 1) * 1000) / 10,
-      loyalty_bonus: i + 1 === 10 ? Math.round(escalatedAnnual * 0.25) : i + 1 === 20 ? Math.round(escalatedAnnual * 0.50) : 0,
-    }));
-    escalation_details = {
-      enabled: true,
-      cost_factor: Math.round(costFactor * 10000) / 10000,
-      cost_factor_pct: `${(costFactor * 100).toFixed(1)}%`,
-      base_annual_premium: total,
-      escalated_annual_premium: escalatedAnnual,
-      escalated_monthly_premium: Math.round(escalatedAnnual / 12 * 100) / 100,
-      base_coverage: baseCoverage,
-      terminal_coverage: baseCoverage * cap,
-      projections,
-    };
-    total = escalatedAnnual;
+    escalation_details = computeEscalation(total, inp.ipd_tier);
+    total = escalation_details.escalated_annual_premium;
   }
 
   return {
@@ -394,6 +397,10 @@ export default function PricingWizard() {
       const session = await apiCall("/api/v2/session", { email: "", browser_id: getBrowserId() });
       sessionTokenRef.current = session.token;
       res = await apiCall("/api/v2/price", { ...target, browser_id: getBrowserId() }, { "X-Session-Token": session.token });
+      if (target.include_escalation && !res.escalation_details) {
+        const esc = computeEscalation(res.total_annual_premium, target.ipd_tier);
+        res = { ...res, escalation_details: esc, total_annual_premium: esc.escalated_annual_premium, total_monthly_premium: esc.escalated_monthly_premium };
+      }
       setResult(res);
     } catch {
       res = localPrice(target); setResult(res); setIsLocal(true);
