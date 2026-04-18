@@ -3,6 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
+import { authFetch } from './auth';
 
 const PSI_WARNING = 0.10;
 const PSI_DRIFT   = 0.25;
@@ -16,7 +17,7 @@ export default function DriftMonitor({ backendUrl }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${backendUrl}/dashboard/stats`)
+    authFetch(`${backendUrl}/dashboard/stats`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
