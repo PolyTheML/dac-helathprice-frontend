@@ -610,26 +610,42 @@ function AssumptionsTab({ profile, coeff, setCoeff, isDirty, resetCoeff }) {
 // ── Vietnam ML: constants ─────────────────────────────────────────────────────
 const VN_API = "https://dac-healthprice-api.onrender.com";
 
-const VN_REGIONS = [
-  "Central Highlands", "Mekong Delta", "North Central", "Northeast",
-  "Northwest", "Red River Delta", "South Central Coast", "Southeast",
-];
-const VN_OCCUPATIONS = [
-  "Construction Worker", "Factory Worker", "Farmer", "Merchant/Trader",
-  "Office Worker", "Retired", "Service Industry",
-];
+const VN_REGIONS = ["Ho Chi Minh City", "Hanoi", "Da Nang", "Can Tho", "Hai Phong", "Rural Areas"];
+const VN_OCCUPATIONS = ["Office/Desk", "Retail/Service", "Healthcare", "Manual Labor", "Industrial/High-Risk", "Retired"];
 const VN_CONDITIONS = ["Hypertension", "Diabetes", "Heart Disease", "COPD/Asthma", "Arthritis"];
+const VN_SMOKING    = ["Never", "Former", "Current"];
+const VN_EXERCISE   = ["Sedentary", "Light", "Moderate", "Active"];
+const VN_ALCOHOL    = ["Never", "Occasional", "Regular", "Heavy"];
+const VN_MARITAL    = ["Single", "Married", "Divorced", "Widowed"];
+const VN_DIET       = ["Healthy", "Balanced", "High Processed"];
+const VN_SLEEP      = ["Good (7-9h)", "Fair (5-7h)", "Poor (<5h)"];
+const VN_STRESS     = ["Low", "Moderate", "High"];
+const VN_MOTORBIKE  = ["No", "Occasional", "Daily"];
+const VN_WATER      = ["Piped/Safe", "Well/Mixed", "Limited"];
+const VN_PROXIMITY  = ["<5km", "5-20km", ">20km"];
 
 const DEFAULT_VN_PROFILE = {
-  age: 35,
-  bmi: 22.0,
-  is_smoking: 0,
-  is_exercise: 1,
-  has_family_history: 0,
+  age: 35, bmi: 22.0,
+  gender: "Male",
+  smoking_status: "Never",
+  exercise_frequency: "Moderate",
+  has_family_history: false,
   monthly_income_millions_vnd: 15.0,
-  region: "Southeast",
-  occupation: "Office Worker",
+  region: "Ho Chi Minh City",
+  occupation: "Office/Desk",
   pre_existing_conditions: [],
+  alcohol: "Never",
+  prev_hospitalizations: 0,
+  medications_count: 0,
+  family_history: [],
+  marital_status: "Single",
+  diet: "Balanced",
+  sleep_quality: "Good (7-9h)",
+  stress_level: "Low",
+  motorbike_daily: "No",
+  water_access: "Piped/Safe",
+  healthcare_proximity: "<5km",
+  family_size: 1,
 };
 
 function ToggleField({ label, value, onChange, onLabel = "Yes", offLabel = "No" }) {
@@ -866,31 +882,101 @@ function VietnamTab() {
               <input type="number" min={14} max={50} step={0.1} value={vp.bmi}
                 onChange={e => setF("bmi", parseFloat(e.target.value) || 22)} style={inputStyle} />
             </Field>
+            <Field label="Gender">
+              <select value={vp.gender} onChange={e => setF("gender", e.target.value)} style={sel}>
+                <option>Male</option><option>Female</option>
+              </select>
+            </Field>
+            <Field label="Monthly Income (M VND)">
+              <input type="number" min={0} step={1} value={vp.monthly_income_millions_vnd}
+                onChange={e => setF("monthly_income_millions_vnd", parseFloat(e.target.value) || 0)}
+                style={inputStyle} />
+            </Field>
           </div>
-
-          <Field label="Monthly Income (Million VND)">
-            <input type="number" min={0} step={1} value={vp.monthly_income_millions_vnd}
-              onChange={e => setF("monthly_income_millions_vnd", parseFloat(e.target.value) || 0)}
-              style={inputStyle} />
-          </Field>
 
           <Field label="Region">
             <select value={vp.region} onChange={e => setF("region", e.target.value)} style={sel}>
               {VN_REGIONS.map(r => <option key={r}>{r}</option>)}
             </select>
           </Field>
-
           <Field label="Occupation">
             <select value={vp.occupation} onChange={e => setF("occupation", e.target.value)} style={sel}>
               {VN_OCCUPATIONS.map(o => <option key={o}>{o}</option>)}
             </select>
           </Field>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 8px" }}>
-            <ToggleField label="Smoker"    value={vp.is_smoking}        onChange={v => setF("is_smoking", v)} />
-            <ToggleField label="Exercises" value={vp.is_exercise}       onChange={v => setF("is_exercise", v)} />
-            <ToggleField label="Family Hx" value={vp.has_family_history} onChange={v => setF("has_family_history", v)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+            <Field label="Smoking Status">
+              <select value={vp.smoking_status} onChange={e => setF("smoking_status", e.target.value)} style={sel}>
+                {VN_SMOKING.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Exercise Level">
+              <select value={vp.exercise_frequency} onChange={e => setF("exercise_frequency", e.target.value)} style={sel}>
+                {VN_EXERCISE.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Alcohol Use">
+              <select value={vp.alcohol} onChange={e => setF("alcohol", e.target.value)} style={sel}>
+                {VN_ALCOHOL.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Marital Status">
+              <select value={vp.marital_status} onChange={e => setF("marital_status", e.target.value)} style={sel}>
+                {VN_MARITAL.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
           </div>
+
+          <ToggleField label="Family History of CHD" value={vp.has_family_history} onChange={v => setF("has_family_history", v)} />
+        </Card>
+
+        <Card>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 14 }}>Lifestyle & Clinical Factors</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+            <Field label="Diet">
+              <select value={vp.diet} onChange={e => setF("diet", e.target.value)} style={sel}>
+                {VN_DIET.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Sleep Quality">
+              <select value={vp.sleep_quality} onChange={e => setF("sleep_quality", e.target.value)} style={sel}>
+                {VN_SLEEP.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Stress Level">
+              <select value={vp.stress_level} onChange={e => setF("stress_level", e.target.value)} style={sel}>
+                {VN_STRESS.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Motorbike Use">
+              <select value={vp.motorbike_daily} onChange={e => setF("motorbike_daily", e.target.value)} style={sel}>
+                {VN_MOTORBIKE.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Water Access">
+              <select value={vp.water_access} onChange={e => setF("water_access", e.target.value)} style={sel}>
+                {VN_WATER.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Hospital Proximity">
+              <select value={vp.healthcare_proximity} onChange={e => setF("healthcare_proximity", e.target.value)} style={sel}>
+                {VN_PROXIMITY.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Prior Hospitalizations">
+              <input type="number" min={0} max={10} value={vp.prev_hospitalizations}
+                onChange={e => setF("prev_hospitalizations", Number(e.target.value))} style={inputStyle} />
+            </Field>
+            <Field label="Medications Count">
+              <input type="number" min={0} max={20} value={vp.medications_count}
+                onChange={e => setF("medications_count", Number(e.target.value))} style={inputStyle} />
+            </Field>
+          </div>
+          <Field label="Family Size">
+            <input type="number" min={1} max={10} value={vp.family_size}
+              onChange={e => setF("family_size", Number(e.target.value))} style={inputStyle} />
+          </Field>
         </Card>
 
         <Card>
