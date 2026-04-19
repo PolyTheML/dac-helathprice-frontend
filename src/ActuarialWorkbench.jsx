@@ -759,11 +759,17 @@ function ModelPanel({ title, data, accent }) {
 
 // ── Tab: Vietnam ML ───────────────────────────────────────────────────────────
 function VietnamTab() {
-  const [vp, setVP]         = useState(DEFAULT_VN_PROFILE);
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState(null);
+  const [vp, setVP]               = useState(DEFAULT_VN_PROFILE);
+  const [result, setResult]       = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState(null);
   const [activeShap, setActiveShap] = useState("health");
+
+  const [selectedModel, setSelectedModel]   = useState(null);
+  const [coverageYears, setCoverageYears]   = useState(10);
+  const [confirmResult, setConfirmResult]   = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError]     = useState(null);
 
   const setF = (k, v) => setVP(p => ({ ...p, [k]: v }));
 
@@ -782,6 +788,9 @@ function VietnamTab() {
   const runPricing = async () => {
     setLoading(true);
     setError(null);
+    setResult(null);
+    setConfirmResult(null);
+    setSelectedModel(null);
     try {
       const r = await fetch(`${VN_API}/api/vietnam/price`, {
         method: "POST",
@@ -797,6 +806,29 @@ function VietnamTab() {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const selectModel = async (model) => {
+    setSelectedModel(model);
+    setConfirmLoading(true);
+    setConfirmError(null);
+    setConfirmResult(null);
+    try {
+      const r = await fetch(`${VN_API}/api/vietnam/select-model`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: vp, selected_model: model, coverage_years: coverageYears }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.detail || `HTTP ${r.status}`);
+      }
+      setConfirmResult(await r.json());
+    } catch (e) {
+      setConfirmError(e.message);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -978,6 +1010,110 @@ function VietnamTab() {
               <ModelPanel title="GLM" data={result.glm} accent={false} />
               <ModelPanel title="XGBoost" data={result.xgboost} accent={true} />
             </div>
+
+            {/* Model selection */}
+            <Card style={{ border: "1.5px solid #e0e7ff", background: "#f8faff" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 6 }}>
+                Choose Your Pricing Model
+              </div>
+              <div style={{ fontSize: 12, color: TXT2, marginBottom: 14 }}>
+                Select the model to lock in this applicant's premium and generate a policy reference.
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: TXT2, whiteSpace: "nowrap" }}>Coverage Years</label>
+                <input
+                  type="number" min={1} max={30} value={coverageYears}
+                  onChange={e => setCoverageYears(Number(e.target.value) || 10)}
+                  style={{ ...sel, width: 70 }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={() => selectModel("glm")} disabled={confirmLoading} style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  border: `1.5px solid ${selectedModel === "glm" ? NAVY : "#d1d5db"}`,
+                  background: selectedModel === "glm" ? NAVY : WHITE,
+                  color: selectedModel === "glm" ? WHITE : TXT,
+                  cursor: confirmLoading ? "not-allowed" : "pointer", fontFamily: "inherit",
+                }}>Use GLM</button>
+                <button onClick={() => selectModel("xgboost")} disabled={confirmLoading} style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  border: `1.5px solid ${selectedModel === "xgboost" ? "#16a34a" : "#d1d5db"}`,
+                  background: selectedModel === "xgboost" ? "#16a34a" : WHITE,
+                  color: selectedModel === "xgboost" ? WHITE : TXT2,
+                  cursor: confirmLoading ? "not-allowed" : "pointer", fontFamily: "inherit",
+                }}>
+                  ★ Use XGBoost <span style={{ fontSize: 10, fontWeight: 400 }}>(Recommended)</span>
+                </button>
+              </div>
+              {confirmLoading && (
+                <div style={{ fontSize: 12, color: TXT2, marginTop: 10, textAlign: "center" }}>Confirming quote...</div>
+              )}
+              {confirmError && (
+                <div style={{ color: ERR, fontSize: 12, marginTop: 10 }}>{confirmError}</div>
+              )}
+            </Card>
+
+            {/* Confirmed quote */}
+            {confirmResult && (
+              <Card style={{ border: `2px solid ${selectedModel === "xgboost" ? "#16a34a" : NAVY}`, background: "#f0fdf4" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 2 }}>Confirmed Quote</div>
+                    <div style={{ fontSize: 11, color: TXT2 }}>Valid for 30 days · Present reference to bind coverage</div>
+                  </div>
+                  <span style={{
+                    background: NAVY, color: WHITE, borderRadius: 6,
+                    padding: "4px 12px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, fontFamily: "monospace",
+                  }}>
+                    {confirmResult.policy_reference}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+                  {[
+                    ["Annual Premium", `$${confirmResult.premium.annual_premium_usd.toLocaleString()}`],
+                    ["Monthly Premium", `$${confirmResult.premium.monthly_premium_usd.toLocaleString()}`],
+                    [`Total (${confirmResult.coverage_years}yr)`, `$${confirmResult.premium.total_policy_cost_usd.toLocaleString()}`],
+                  ].map(([lbl, val]) => (
+                    <div key={lbl} style={{ background: WHITE, borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                      <div style={{ fontSize: 10, color: TXT2, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.4 }}>{lbl}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 12 }}>
+                  <div>
+                    <div style={{ color: TXT2, marginBottom: 4 }}>Model Used</div>
+                    <div style={{ fontWeight: 600, color: NAVY }}>{confirmResult.model.name}</div>
+                    <div style={{ color: TXT2, fontSize: 11, marginTop: 2 }}>R² Health: {(confirmResult.model.r2_health * 100).toFixed(1)}% · R² Mortality: {(confirmResult.model.r2_mortality * 100).toFixed(1)}%</div>
+                  </div>
+                  <div>
+                    <div style={{ color: TXT2, marginBottom: 4 }}>Why this model?</div>
+                    <div style={{ color: TXT, fontSize: 11 }}>{confirmResult.model.rationale}</div>
+                  </div>
+                </div>
+
+                {confirmResult.key_risk_factors?.length > 0 && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: TXT2, marginBottom: 6 }}>Key Risk Factors</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {confirmResult.key_risk_factors.map((f, i) => (
+                        <span key={i} style={{
+                          padding: "3px 10px", borderRadius: 20, fontSize: 11,
+                          background: f.direction === "positive" || f.direction === "increases risk" ? "#fef2f2" : "#f0fdf4",
+                          color: f.direction === "positive" || f.direction === "increases risk" ? ERR : OK,
+                          border: `1px solid ${f.direction === "positive" || f.direction === "increases risk" ? "#fecaca" : "#bbf7d0"}`,
+                          fontWeight: 500,
+                        }}>
+                          {f.feature || f.factor}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* SHAP waterfall */}
             {shapData.length > 0 && (
