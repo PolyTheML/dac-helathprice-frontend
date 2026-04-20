@@ -306,9 +306,11 @@ function SystemHealthTab({ apiKey }) {
 
 // ── Tab: Model Management ─────────────────────────────────────────────────────
 
-function ModelManagementTab() {
+function ModelManagementTab({ vnModels = [] }) {
   const [models, setModels] = useState(MOCK_MODELS);
-  const [confirm, setConfirm] = useState(null); // model id pending activation
+  const [confirm, setConfirm] = useState(null);
+  const [vnStatuses, setVnStatuses] = useState({});
+  const [vnConfirm, setVnConfirm] = useState(null);
 
   const activate = (id) => {
     setModels(prev => prev.map(m => {
@@ -317,6 +319,18 @@ function ModelManagementTab() {
     }));
     setConfirm(null);
   };
+
+  const vnActivate = (versionId, modelType) => {
+    setVnStatuses(prev => {
+      const next = { ...prev };
+      vnModels.forEach(m => { if (m.model_type === modelType) next[m.version_id] = "inactive"; });
+      next[versionId] = "active";
+      return next;
+    });
+    setVnConfirm(null);
+  };
+
+  const vnDeactivate = (versionId) => setVnStatuses(prev => ({ ...prev, [versionId]: "inactive" }));
 
   const typeGroups = ["Health", "Life"];
 
@@ -365,6 +379,56 @@ function ModelManagementTab() {
           <p style={{ fontSize: 11, color: GRAY, marginTop: 10 }}>Source: <code>GET /api/v1/admin/models</code> (mock — wire when backend ready)</p>
         </section>
       ))}
+
+      {/* Vietnam ML models — populated when retraining is triggered in the Vietnam ML tab */}
+      {vnModels.length > 0 && (
+        <section style={sectionStyle}>
+          <h3 style={{ ...h3, marginBottom: 4 }}>Vietnam ML Models</h3>
+          <p style={{ fontSize: 12, color: GRAY, marginBottom: 16 }}>Retrained via the Vietnam ML tab. Activate a version to make it live for pricing.</p>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                  {["Version ID","Model","R²","RMSE","Records","Status","Action"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, color: TXT2, fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {vnModels.map(v => {
+                  const st = vnStatuses[v.version_id] ?? "inactive";
+                  return (
+                    <tr key={v.version_id} style={{ borderBottom: "1px solid #f1f3f5", background: st === "active" ? "#f0fdf4" : WHITE }}>
+                      <td style={{ padding: "12px", fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: NAVY }}>{v.version_id}</td>
+                      <td style={{ padding: "12px" }}>
+                        <Badge label={v.model_type} color={v.model_type === "health" ? "#1e40af" : "#6b21a8"} bg={v.model_type === "health" ? "#dbeafe" : "#f3e8ff"} />
+                      </td>
+                      <td style={{ padding: "12px", fontFamily: "monospace" }}>{v.r2?.toFixed(3) ?? "—"}</td>
+                      <td style={{ padding: "12px", fontFamily: "monospace" }}>{v.rmse?.toFixed(4) ?? "—"}</td>
+                      <td style={{ padding: "12px", color: TXT2 }}>{v.training_records?.toLocaleString() ?? "—"}</td>
+                      <td style={{ padding: "12px" }}>
+                        <Badge label={st} color={st === "active" ? "#166534" : "#6b7280"} bg={st === "active" ? "#dcfce7" : "#f3f4f6"} />
+                      </td>
+                      <td style={{ padding: "12px" }}>
+                        {st === "active" ? (
+                          <button onClick={() => vnDeactivate(v.version_id)} style={{ padding: "4px 10px", borderRadius: 6, background: "#fee2e2", color: "#991b1b", border: "none", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Deactivate</button>
+                        ) : vnConfirm === v.version_id ? (
+                          <span style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => vnActivate(v.version_id, v.model_type)} style={{ padding: "4px 10px", borderRadius: 6, background: NAVY, color: WHITE, border: "none", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Confirm</button>
+                            <button onClick={() => setVnConfirm(null)} style={{ padding: "4px 10px", borderRadius: 6, background: LTGRAY, color: TXT2, border: "none", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                          </span>
+                        ) : (
+                          <button onClick={() => setVnConfirm(v.version_id)} style={{ padding: "4px 12px", borderRadius: 6, background: GOLD, color: NAVY, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Activate</button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -525,7 +589,7 @@ function AuditLogTab() {
 
 // ── Tab: Vietnam ML ───────────────────────────────────────────────────────────
 
-function VietnamMLTab() {
+function VietnamMLTab({ onNewModels = () => {} }) {
   const [versions, setVersions]         = useState([]);
   const [loadingVersions, setLoadingV]  = useState(true);
   const [retraining, setRetraining]     = useState(false);
@@ -555,6 +619,9 @@ function VietnamMLTab() {
       });
       const data = await r.json();
       setRetrainResult(data);
+      if (data.status === "complete" && data.new_versions?.length) {
+        onNewModels(data.new_versions);
+      }
       await fetchVersions();
     } catch (e) {
       setRetrainResult({ status: "error", message: e.message });
@@ -690,6 +757,14 @@ export default function AdminConsole() {
   const [key, setKey]   = useState("");
   const [authed, setAuthed] = useState(false);
   const [tab, setTab]   = useState("System Health");
+  const [vnModels, setVnModels] = useState([]);
+
+  const addVnModels = (newVersions) => {
+    setVnModels(prev => {
+      const ids = new Set(prev.map(m => m.version_id));
+      return [...prev, ...newVersions.filter(m => !ids.has(m.version_id))];
+    });
+  };
 
   if (!authed) return <ApiKeyGate onAuth={k => { setKey(k); setAuthed(true); }} />;
 
@@ -721,8 +796,8 @@ export default function AdminConsole() {
 
         {/* Tab content */}
         {tab === "System Health"     && <SystemHealthTab apiKey={key} />}
-        {tab === "Model Management"  && <ModelManagementTab />}
-        {tab === "Vietnam ML"        && <VietnamMLTab />}
+        {tab === "Model Management"  && <ModelManagementTab vnModels={vnModels} />}
+        {tab === "Vietnam ML"        && <VietnamMLTab onNewModels={addVnModels} />}
         {tab === "Rules Management"  && <RulesManagementTab />}
         {tab === "Audit Log"         && <AuditLogTab />}
       </div>
