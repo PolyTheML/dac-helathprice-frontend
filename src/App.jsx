@@ -128,7 +128,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "UW Review", "Admin", "Portal", "About", "Contact"];
+const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "UW Review", "Admin", "About", "Contact"];
 const ROLE_PAGES = {
   admin:       ALL_PAGES,
   underwriter: ALL_PAGES.filter(p => p !== "Admin"),
@@ -246,7 +246,6 @@ export default function App() {
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "UW Review" && <UnderwriterDashboard />}
       {page === "Admin" && <AdminConsole />}
-      {page === "Portal" && <PublicPortalPage />}
       {page === "About" && <AboutPage />}
       {page === "Contact" && <ContactPage />}
 

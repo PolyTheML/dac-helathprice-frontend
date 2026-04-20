@@ -774,6 +774,35 @@ function ModelPanel({ title, data, accent }) {
 }
 
 // ── Tab: Vietnam ML ───────────────────────────────────────────────────────────
+function computeQuote(result, model, coverageYears) {
+  const data = model === "glm" ? result.glm : result.xgboost;
+  const healthScore = data.health_score ?? 70;
+  const mortalityMult = data.mortality_multiplier ?? 1.0;
+  const BASE_MONTHLY = 20;
+  const monthly = Math.round(BASE_MONTHLY * mortalityMult * (1 + (100 - healthScore) / 200));
+  const annual = monthly * 12;
+  const total = annual * coverageYears;
+  const ref = `VN-${model.toUpperCase()}-${Math.random().toString(36).toUpperCase().slice(2, 8)}`;
+  const rationale = model === "glm"
+    ? "GLM provides transparent, auditable coefficients — preferred when regulatory explainability is required."
+    : "XGBoost captures non-linear interactions between risk factors, achieving higher predictive accuracy.";
+  const keyRisk = (result.xgboost.shap_health_top3 || []).map(s => ({
+    feature: s.feature,
+    direction: s.direction === "increases_risk" ? "increases risk" : "reduces risk",
+  }));
+  return {
+    policy_reference: ref,
+    premium: { annual_premium_usd: annual, monthly_premium_usd: monthly, total_policy_cost_usd: total },
+    model: {
+      name: model === "glm" ? "GLM (Gamma + Poisson)" : "XGBoost",
+      r2_health: data.r2_health,
+      r2_mortality: data.r2_mortality,
+      rationale,
+    },
+    key_risk_factors: keyRisk,
+  };
+}
+
 function VietnamTab() {
   const [vp, setVP]               = useState(DEFAULT_VN_PROFILE);
   const [result, setResult]       = useState(null);
@@ -781,11 +810,10 @@ function VietnamTab() {
   const [error, setError]         = useState(null);
   const [activeShap, setActiveShap] = useState("health");
 
-  const [selectedModel, setSelectedModel]   = useState(null);
-  const [coverageYears, setCoverageYears]   = useState(10);
-  const [confirmResult, setConfirmResult]   = useState(null);
-  const [confirmLoading, setConfirmLoading] = useState(false);
-  const [confirmError, setConfirmError]     = useState(null);
+  const [selectedModel, setSelectedModel] = useState(null);
+  const [coverageYears, setCoverageYears] = useState(10);
+
+  const confirmResult = result && selectedModel ? computeQuote(result, selectedModel, coverageYears) : null;
 
   const setF = (k, v) => setVP(p => ({ ...p, [k]: v }));
 
@@ -805,7 +833,6 @@ function VietnamTab() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setConfirmResult(null);
     setSelectedModel(null);
     try {
       const r = await fetch(`${VN_API}/api/vietnam/price`, {
@@ -825,27 +852,8 @@ function VietnamTab() {
     }
   };
 
-  const selectModel = async (model) => {
-    setSelectedModel(model);
-    setConfirmLoading(true);
-    setConfirmError(null);
-    setConfirmResult(null);
-    try {
-      const r = await fetch(`${VN_API}/api/vietnam/select-model`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile: vp, selected_model: model, coverage_years: coverageYears }),
-      });
-      if (!r.ok) {
-        const body = await r.json().catch(() => ({}));
-        throw new Error(body.detail || `HTTP ${r.status}`);
-      }
-      setConfirmResult(await r.json());
-    } catch (e) {
-      setConfirmError(e.message);
-    } finally {
-      setConfirmLoading(false);
-    }
+  const selectModel = (model) => {
+    setSelectedModel(prev => prev === model ? null : model);
   };
 
   const sel = { ...inputStyle, fontSize: 13 };
@@ -1099,11 +1107,11 @@ function VietnamTab() {
 
             {/* Model selection */}
             <Card style={{ border: "1.5px solid #e0e7ff", background: "#f8faff" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 6 }}>
-                Choose Your Pricing Model
+              <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 4 }}>
+                Generate Final Quote
               </div>
               <div style={{ fontSize: 12, color: TXT2, marginBottom: 14 }}>
-                Select the model to lock in this applicant's premium and generate a policy reference.
+                Choose a model to compute this applicant's premium. The quote below updates instantly.
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                 <label style={{ fontSize: 12, color: TXT2, whiteSpace: "nowrap" }}>Coverage Years</label>
@@ -1114,29 +1122,23 @@ function VietnamTab() {
                 />
               </div>
               <div style={{ display: "flex", gap: 12 }}>
-                <button onClick={() => selectModel("glm")} disabled={confirmLoading} style={{
+                <button onClick={() => selectModel("glm")} style={{
                   flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
                   border: `1.5px solid ${selectedModel === "glm" ? NAVY : "#d1d5db"}`,
                   background: selectedModel === "glm" ? NAVY : WHITE,
                   color: selectedModel === "glm" ? WHITE : TXT,
-                  cursor: confirmLoading ? "not-allowed" : "pointer", fontFamily: "inherit",
+                  cursor: "pointer", fontFamily: "inherit",
                 }}>Use GLM</button>
-                <button onClick={() => selectModel("xgboost")} disabled={confirmLoading} style={{
+                <button onClick={() => selectModel("xgboost")} style={{
                   flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
                   border: `1.5px solid ${selectedModel === "xgboost" ? "#16a34a" : "#d1d5db"}`,
                   background: selectedModel === "xgboost" ? "#16a34a" : WHITE,
                   color: selectedModel === "xgboost" ? WHITE : TXT2,
-                  cursor: confirmLoading ? "not-allowed" : "pointer", fontFamily: "inherit",
+                  cursor: "pointer", fontFamily: "inherit",
                 }}>
                   ★ Use XGBoost <span style={{ fontSize: 10, fontWeight: 400 }}>(Recommended)</span>
                 </button>
               </div>
-              {confirmLoading && (
-                <div style={{ fontSize: 12, color: TXT2, marginTop: 10, textAlign: "center" }}>Confirming quote...</div>
-              )}
-              {confirmError && (
-                <div style={{ color: ERR, fontSize: 12, marginTop: 10 }}>{confirmError}</div>
-              )}
             </Card>
 
             {/* Confirmed quote */}
