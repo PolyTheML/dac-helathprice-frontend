@@ -13,7 +13,7 @@
  * and set UW_API_URL to the Render service URL.
  */
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import DriftMonitor from "./DriftMonitor";
 import UnderwriterQueue from "./UnderwriterQueue";
 import ActuarialWorkbench from "./ActuarialWorkbench";
@@ -270,30 +270,7 @@ function BreakdownBar({ label, value, total, color }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LifeInsurancePricer() {
-  const [tab, setTab] = useState("pricer"); // "pricer" | "dashboard" | "workbench"
-
-  const [inp, setInp] = useState({
-    age: 35,
-    gender: "M",
-    faceAmount: 50000,
-    termYears: 10,
-    bmi: 23.5,
-    smoker: false,
-    alcohol: "None",
-    diabetes: false,
-    hypertension: false,
-    hyperlipidemia: false,
-    family_history_chd: false,
-    systolic: 120,
-    diastolic: 80,
-  });
-
-  const set = (k, v) => setInp(p => ({ ...p, [k]: v }));
-
-  // Calculate live — no API call needed, exact same math as /pricing/what-if
-  const result = useMemo(() => calcPremium(inp), [inp]);
-
-  const tierColor = { LOW: OK, MEDIUM: WARN, HIGH: ERR, DECLINE: "#6b7280" }[result.tier] || NAVY;
+  const [tab, setTab] = useState("workbench"); // "workbench" | "dashboard"
 
   return (
     <div style={{ paddingTop: 80, minHeight: "100vh", background: LTGRAY, fontFamily: "'DM Sans', sans-serif" }}>
@@ -314,7 +291,7 @@ export default function LifeInsurancePricer() {
       {/* Tab bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", gap: 0 }}>
-          {[["pricer", "Pricing Calculator"], ["workbench", "GLM Workbench"], ["dashboard", "Underwriter Dashboard"]].map(([key, label]) => (
+          {[["workbench", "GLM Workbench"], ["dashboard", "Underwriter Dashboard"]].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -343,201 +320,6 @@ export default function LifeInsurancePricer() {
         </div>
       )}
 
-      {/* Pricer tab */}
-      {tab === "pricer" && <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28, alignItems: "start" }}>
-
-        {/* ═══ LEFT — Inputs ═══ */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-          {/* Policy Parameters */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <SectionHeader title="Policy Parameters" sub="Coverage amount and term" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Face Amount (USD)">
-                <select value={inp.faceAmount} onChange={e => set("faceAmount", Number(e.target.value))} style={inputStyle}>
-                  {[10000, 25000, 50000, 75000, 100000, 150000, 200000].map(v =>
-                    <option key={v} value={v}>${v.toLocaleString()}</option>
-                  )}
-                </select>
-              </Field>
-              <Field label="Policy Term (years)">
-                <select value={inp.termYears} onChange={e => set("termYears", Number(e.target.value))} style={inputStyle}>
-                  {[5, 10, 15, 20, 25, 30].map(v => <option key={v} value={v}>{v} years</option>)}
-                </select>
-              </Field>
-            </div>
-          </div>
-
-          {/* Applicant Profile */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <SectionHeader title="Applicant Profile" sub="Demographics" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Age">
-                <input type="number" min={18} max={75} value={inp.age}
-                  onChange={e => set("age", Number(e.target.value))} style={inputStyle} />
-              </Field>
-              <Field label="Gender">
-                <select value={inp.gender} onChange={e => set("gender", e.target.value)} style={inputStyle}>
-                  <option value="M">Male</option>
-                  <option value="F">Female</option>
-                </select>
-              </Field>
-              <Field label="BMI" hint="WHO: <18.5 under · 18.5–25 normal · 25–30 over · 30+ obese">
-                <input type="number" min={10} max={60} step={0.1} value={inp.bmi}
-                  onChange={e => set("bmi", Number(e.target.value))} style={inputStyle} />
-              </Field>
-              <Field label="Alcohol Use">
-                <select value={inp.alcohol} onChange={e => set("alcohol", e.target.value)} style={inputStyle}>
-                  <option>None</option>
-                  <option>Moderate</option>
-                  <option>Heavy</option>
-                </select>
-              </Field>
-            </div>
-          </div>
-
-          {/* Health Flags */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <SectionHeader title="Health Flags" sub="Each flag applies an additive mortality multiplier" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
-              <div>
-                <Checkbox label="Smoker (+100% mortality)" checked={inp.smoker} onChange={v => set("smoker", v)} />
-                <Checkbox label="Diabetes (+40%)"          checked={inp.diabetes} onChange={v => set("diabetes", v)} />
-                <Checkbox label="Hypertension (+25%)"      checked={inp.hypertension} onChange={v => set("hypertension", v)} />
-              </div>
-              <div>
-                <Checkbox label="Hyperlipidemia (+20%)"    checked={inp.hyperlipidemia} onChange={v => set("hyperlipidemia", v)} />
-                <Checkbox label="Family Hx CHD (+30%)"     checked={inp.family_history_chd} onChange={v => set("family_history_chd", v)} />
-              </div>
-            </div>
-          </div>
-
-          {/* Blood Pressure */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <SectionHeader title="Blood Pressure" sub="JNC-8 classification · overrides hypertension flag if BP is elevated" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Systolic (mmHg)" hint="Normal <120">
-                <input type="number" min={60} max={220} value={inp.systolic}
-                  onChange={e => set("systolic", Number(e.target.value))} style={inputStyle} />
-              </Field>
-              <Field label="Diastolic (mmHg)" hint="Normal <80">
-                <input type="number" min={40} max={140} value={inp.diastolic}
-                  onChange={e => set("diastolic", Number(e.target.value))} style={inputStyle} />
-              </Field>
-            </div>
-            {/* BP classification badge */}
-            {(() => {
-              const cls = classifyBP(inp.systolic, inp.diastolic);
-              const bp = { normal: [OK, "Normal"], elevated: [WARN, "Elevated (+10%)"], stage1: [WARN, "Stage 1 (+25%)"], stage2: [ERR, "Stage 2 (+50%)"], crisis: [ERR, "Crisis — decline"], unknown: ["#9ca3af", "Unknown"] };
-              const [c, l] = bp[cls] ?? ["#9ca3af", cls];
-              return <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: c }}>BP Classification: {l}</div>;
-            })()}
-          </div>
-
-        </div>
-
-        {/* ═══ RIGHT — Results ═══ */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-          {/* Premium Cards */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>Live Premium</div>
-              <div style={{ fontSize: 11, color: "#9ca3af", fontFamily: "monospace" }}>{ASSUMPTION_VERSION}</div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
-              <PremiumCard label="Annual Premium" value={result.grossAnnual} big />
-              <PremiumCard label="Monthly" value={result.grossMonthly} />
-              <div style={{ background: LTGRAY, borderRadius: 10, padding: "16px 20px", textAlign: "center", border: "1px solid #e5e7eb" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: TXT2, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Mortality Ratio</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: tierColor }}>{result.mortalityRatio.toFixed(2)}×</div>
-              </div>
-            </div>
-            <TierBadge tier={result.tier} />
-          </div>
-
-          {/* Mortality Basis */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 16 }}>Mortality Basis</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              {[
-                ["q(x) WHO SEA", `${(result.baseRate / CAMBODIA_ADJ).toFixed(2)}/1,000`],
-                ["Cambodia ×0.85", `${result.baseRate.toFixed(4)}/1,000`],
-                ["Age Band", getAgeBand(inp.age)],
-              ].map(([k, v]) => (
-                <div key={k} style={{ background: LTGRAY, borderRadius: 8, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 11, color: TXT2, marginBottom: 4 }}>{k}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{v}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 12, padding: "10px 14px", background: "#eff6ff", borderRadius: 8, fontSize: 12, color: "#1d4ed8" }}>
-              Pure Premium = ${inp.faceAmount.toLocaleString()} × {result.baseRate.toFixed(4)}/1,000 × {result.mortalityRatio.toFixed(2)} = <strong>${result.pure.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-            </div>
-          </div>
-
-          {/* Premium Build-up */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 16 }}>Premium Build-up</div>
-            <BreakdownBar label="Pure Premium (mortality cost)"    value={result.pure}        total={result.grossAnnual} color={TEAL}  />
-            <BreakdownBar label="Expense Loading (12%)"           value={result.expense}     total={result.grossAnnual} color={GOLD}  />
-            <BreakdownBar label="Commission Loading (10%)"        value={result.commission}  total={result.grossAnnual} color={GOLD}  />
-            <BreakdownBar label="Profit Loading (5%)"             value={result.profit}      total={result.grossAnnual} color={WARN}  />
-            <BreakdownBar label="Contingency Loading (5%)"        value={result.contingency} total={result.grossAnnual} color={WARN}  />
-            <div style={{ borderTop: `2px solid ${NAVY}`, marginTop: 12, paddingTop: 12, display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Gross Annual Premium</span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>${result.grossAnnual.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-
-          {/* Active Risk Factors */}
-          <div style={{ background: WHITE, borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 16 }}>
-              Active Risk Factors
-              <span style={{ fontSize: 12, fontWeight: 400, color: TXT2, marginLeft: 8 }}>
-                (additive adjustment — Mortality Ratio = 1.00 {result.factors.map(f => `+ ${(f.multiplier - 1).toFixed(2)}`).join(" ")} = {result.mortalityRatio.toFixed(2)})
-              </span>
-            </div>
-            {result.factors.length === 0 ? (
-              <div style={{ padding: "16px", background: "#d1fae5", borderRadius: 8, fontSize: 13, color: OK, fontWeight: 600 }}>
-                No risk factors — standard rate applies (Mortality Ratio = 1.00)
-              </div>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: `2px solid ${NAVY}` }}>
-                    <th style={{ textAlign: "left",  padding: "8px 0",    color: TXT2, fontWeight: 600 }}>Risk Factor</th>
-                    <th style={{ textAlign: "center",padding: "8px 8px",  color: TXT2, fontWeight: 600 }}>Multiplier</th>
-                    <th style={{ textAlign: "right", padding: "8px 0",    color: TXT2, fontWeight: 600 }}>+Premium/yr</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.factors.map((f, i) => {
-                    const marginalMR    = f.multiplier - 1.0;
-                    const marginalPure  = inp.faceAmount * (result.baseRate / 1000) * marginalMR;
-                    const marginalGross = marginalPure * (1 + LOADING.expense + LOADING.commission + LOADING.profit + LOADING.contingency);
-                    return (
-                      <tr key={i} style={{ borderBottom: "1px solid #f0f0f0", background: i % 2 ? LTGRAY : WHITE }}>
-                        <td style={{ padding: "10px 0",   color: TXT  }}>{f.label}</td>
-                        <td style={{ padding: "10px 8px", color: ERR, fontWeight: 700, textAlign: "center" }}>{f.multiplier.toFixed(2)}×</td>
-                        <td style={{ padding: "10px 0",   color: TXT, textAlign: "right" }}>
-                          +${marginalGross.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* IRC Audit footer */}
-          <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "14px 18px", fontSize: 12, color: "#92400e" }}>
-            <strong>IRC Audit Trail</strong> · Assumption {ASSUMPTION_VERSION} · Cambodia mortality adjustment ×{CAMBODIA_ADJ} · Source: WHO SEA life tables 2020, adapted for Cambodia · Loadings: Expense 12% | Commission 10% | Profit 5% | Contingency 5%
-          </div>
-
-        </div>
-      </div>}
 
       {/* Responsive style */}
       <style>{`

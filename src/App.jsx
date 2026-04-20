@@ -128,11 +128,11 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "UW Review", "Admin", "About", "Contact"];
+const ALL_PAGES = ["Home", "New Case", "Life Insurance", "Admin"];
 const ROLE_PAGES = {
   admin:       ALL_PAGES,
-  underwriter: ALL_PAGES.filter(p => p !== "Admin"),
-  analyst:     ALL_PAGES.filter(p => p !== "Admin" && p !== "UW Review"),
+  underwriter: ALL_PAGES,
+  analyst:     ALL_PAGES,
 };
 
 export default function App() {
@@ -242,12 +242,8 @@ export default function App() {
 
       {page === "Home" && <HomePage onGetQuote={() => { setPage("New Case"); window.scrollTo(0, 0); }} />}
       {page === "New Case" && <ApplicationWizard />}
-      {page === "Case Pipeline" && <StatusTracker />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
-      {page === "UW Review" && <UnderwriterDashboard />}
       {page === "Admin" && <AdminConsole />}
-      {page === "About" && <AboutPage />}
-      {page === "Contact" && <ContactPage />}
 
       {/* ═══ FOOTER ═══ */}
       <footer style={{ background: NAVY_D, color: GRAY, padding: "64px 24px 32px" }}>
