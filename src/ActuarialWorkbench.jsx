@@ -835,10 +835,22 @@ function VietnamTab() {
     setResult(null);
     setSelectedModel(null);
     try {
+      // Map frontend UX fields to backend API contract (backend uses int flags, not strings)
+      const payload = {
+        age: vp.age,
+        bmi: vp.bmi,
+        is_smoking: vp.smoking_status === "Current" ? 1 : 0,
+        is_exercise: ["Moderate", "Active"].includes(vp.exercise_frequency) ? 1 : 0,
+        has_family_history: vp.has_family_history ? 1 : 0,
+        monthly_income_millions_vnd: vp.monthly_income_millions_vnd,
+        region: vp.region,
+        occupation: vp.occupation,
+        pre_existing_conditions: vp.pre_existing_conditions || [],
+      };
       const r = await fetch(`${VN_API}/api/vietnam/price`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(vp),
+        body: JSON.stringify(payload),
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));

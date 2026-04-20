@@ -128,7 +128,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const ALL_PAGES = ["Home", "New Case", "Life Insurance", "Admin"];
+const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "Admin"];
 const ROLE_PAGES = {
   admin:       ALL_PAGES,
   underwriter: ALL_PAGES,
@@ -242,6 +242,7 @@ export default function App() {
 
       {page === "Home" && <HomePage onGetQuote={() => { setPage("New Case"); window.scrollTo(0, 0); }} />}
       {page === "New Case" && <ApplicationWizard />}
+      {page === "Case Pipeline" && <UnderwriterDashboard />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "Admin" && <AdminConsole />}
 
