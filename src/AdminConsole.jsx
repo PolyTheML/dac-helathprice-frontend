@@ -666,7 +666,29 @@ function VietnamMLTab({ onNewModels = () => {} }) {
             <p style={{ fontSize: 13, fontWeight: 700, color: retrainResult.status === "complete" ? OK : ERR, marginBottom: 6 }}>
               {retrainResult.status === "complete" ? "Retraining complete" : "Retraining failed"}
             </p>
-            <p style={{ fontSize: 12, color: TXT2, marginBottom: retrainResult.new_versions?.length ? 10 : 0 }}>{retrainResult.message}</p>
+            <p style={{ fontSize: 12, color: TXT2, marginBottom: 10 }}>{retrainResult.message}</p>
+
+            {/* Data-aware cohort summary */}
+            {retrainResult.data_summary && (() => {
+              const ds = retrainResult.data_summary;
+              const excess = ds.smoker_excess_vs_baseline;
+              const direction = excess > 0.02 ? "up" : excess < -0.02 ? "down" : "stable";
+              const dirColor = direction === "up" ? ERR : direction === "down" ? OK : TXT2;
+              const dirLabel = direction === "up"
+                ? `↑ +${(excess * 100).toFixed(1)}% vs baseline — elevated RMSE expected`
+                : direction === "down"
+                ? `↓ ${(excess * 100).toFixed(1)}% vs baseline — tighter fit expected`
+                : "≈ stable vs baseline";
+              return (
+                <div style={{ padding: "8px 12px", background: "rgba(0,0,0,0.04)", borderRadius: 8, fontSize: 12, marginBottom: 10,
+                  display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ color: TXT2 }}>Dataset: <strong>{ds.records?.toLocaleString()} records</strong></span>
+                  <span style={{ color: TXT2 }}>Smoker prevalence: <strong>{(ds.smoker_ratio * 100).toFixed(1)}%</strong></span>
+                  <span style={{ color: dirColor, fontWeight: 600 }}>{dirLabel}</span>
+                </div>
+              );
+            })()}
+
             {retrainResult.new_versions?.map(v => (
               <div key={v.version_id} style={{ padding: "8px 12px", background: WHITE, borderRadius: 8, fontSize: 12, marginTop: 6,
                 display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
