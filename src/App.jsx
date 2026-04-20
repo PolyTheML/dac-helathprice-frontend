@@ -4,6 +4,7 @@ import ApplicationWizard from "./ApplicationWizard";
 import StatusTracker from "./StatusTracker";
 import UnderwriterDashboard from "./UnderwriterDashboard";
 import AdminConsole from "./AdminConsole";
+import PlatformExplorer from "./PlatformExplorer";
 import PublicPortal from "./portal/PublicPortal";
 import { API_URL, clearAuth, getRole, getUser } from "./auth";
 
@@ -128,7 +129,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "Admin"];
+const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "Admin", "Platform"];
 const ROLE_PAGES = {
   admin:       ALL_PAGES,
   underwriter: ALL_PAGES,
@@ -245,6 +246,7 @@ export default function App() {
       {page === "Case Pipeline" && <UnderwriterDashboard />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "Admin" && <AdminConsole />}
+      {page === "Platform" && <PlatformExplorer />}
 
       {/* ═══ FOOTER ═══ */}
       <footer style={{ background: NAVY_D, color: GRAY, padding: "64px 24px 32px" }}>
