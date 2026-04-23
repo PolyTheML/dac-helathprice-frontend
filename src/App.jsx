@@ -130,7 +130,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const ALL_PAGES = ["New Case", "Case Pipeline", "Life Insurance", "Auto Underwriting", "AI Lab", "Admin"];
+const ALL_PAGES = ["Home", "Case Pipeline", "Life Insurance", "Auto Underwriting", "AI Lab", "Admin"];
 const ROLE_PAGES = {
   admin:       ALL_PAGES,
   underwriter: ALL_PAGES,
@@ -141,7 +141,7 @@ export default function App() {
   // Public portal — no staff auth required
   if (window.location.pathname.startsWith("/portal")) return <PublicPortal />;
 
-  const [page, setPage] = useState("New Case");
+  const [page, setPage] = useState("Home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [authed, setAuthed] = useState(() => !!sessionStorage.getItem("dac_token"));
@@ -217,7 +217,7 @@ export default function App() {
         borderBottom: scrollY>60 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px", display:"flex", alignItems:"center", justifyContent:"space-between", height:72 }}>
           {/* Logo */}
-          <div style={{ display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={() => setPage("New Case")}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={() => setPage("Home")}>
             <img src="/DAC.png" alt="DAC" style={{ width:120, height:120, objectFit:"contain" }} />
             <span style={{ color:WHITE, fontSize:20, fontWeight:700, letterSpacing:-0.5 }}>DAC <span style={{ color:GOLD }}>HealthPrice</span></span>
           </div>
@@ -226,7 +226,6 @@ export default function App() {
             <div style={{ display:"flex", gap:28 }}>
               {(ROLE_PAGES[role] || ALL_PAGES).map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
             </div>
-            <button className="gold-btn" style={{ padding:"10px 28px", fontSize:14 }} onClick={() => { setPage("New Case"); window.scrollTo(0,0); }}>New Case</button>
             <button className="outline-btn" style={{ padding:"8px 20px", fontSize:13 }} onClick={() => { clearAuth(); setAuthed(false); setRole(""); }}>Sign out</button>
           </div>
           {/* Hamburger */}
@@ -238,11 +237,10 @@ export default function App() {
       {menuOpen && (
         <div className="mobile-menu">
           {(ROLE_PAGES[role] || ALL_PAGES).map(p => <span key={p} className={`nav-link ${page===p?"active":""}`} onClick={() => { setPage(p); setMenuOpen(false); window.scrollTo(0,0); }}>{p}</span>)}
-          <button className="gold-btn" onClick={() => { setPage("New Case"); setMenuOpen(false); window.scrollTo(0,0); }}>New Case</button>
         </div>
       )}
 
-      {page === "New Case" && <ApplicationWizard />}
+      {page === "Home" && <ApplicationWizard />}
       {page === "Case Pipeline" && <UnderwriterDashboard />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "AI Lab" && <ActuarialAILab />}
@@ -269,7 +267,7 @@ export default function App() {
               {[
                 { label: "About DAC", go: "About" },
                 { label: "Contact Us", go: "Contact" },
-                { label: "New Case", go: "New Case" },
+                { label: "Home", go: "Home" },
               ].map(s => <p key={s.label} onClick={() => { setPage(s.go); window.scrollTo(0,0); }} style={{ fontSize: 14, marginBottom: 10, cursor: "pointer" }}>{s.label}</p>)}
             </div>
             <div>
@@ -684,7 +682,7 @@ function PublicPortalPage() {
             <div>
               <p style={{ color: GOLD, fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>This app — Internal Tool</p>
               <p style={{ color: WHITE, fontSize: 20, fontWeight: 700, marginBottom: 8 }}>DAC HealthPrice (Staff)</p>
-              <p style={{ color: GRAY, fontSize: 14, lineHeight: 1.6 }}>New Case · Case Pipeline · GLM Workbench · UW Review · Admin Console</p>
+              <p style={{ color: GRAY, fontSize: 14, lineHeight: 1.6 }}>Case Pipeline · Life Insurance · Auto Underwriting · AI Lab · Admin</p>
               <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: OK }} />
                 <span style={{ color: OK, fontSize: 13, fontWeight: 600 }}>Live — dac-healthprice-frontend.vercel.app</span>
