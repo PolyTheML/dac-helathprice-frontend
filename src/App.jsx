@@ -240,7 +240,7 @@ export default function App() {
         </div>
       )}
 
-      {page === "Home" && <ApplicationWizard />}
+      {page === "Home" && <HomePage onGetQuote={() => { setPage("Case Pipeline"); window.scrollTo(0,0); }} />}
       {page === "Case Pipeline" && <UnderwriterDashboard />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "AI Lab" && <ActuarialAILab />}
