@@ -19,11 +19,18 @@ const inputStyle = {
 
 const GREETING = "Hi! I'm your DAC insurance advisor, powered by Claude. Ask me about coverage options, premium pricing, the application process, or anything else about your health insurance.";
 
+const MODELS = [
+  { id: "haiku",  label: "Haiku",  badge: "Fast"  },
+  { id: "sonnet", label: "Sonnet", badge: "Smart" },
+  { id: "opus",   label: "Opus",   badge: "Best"  },
+];
+
 export default function ChatAdvisor({ open, onOpenChange, context = {} }) {
   const [messages, setMessages] = useState([{ role: "assistant", text: GREETING }]);
   const [input, setInput]   = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState("");
+  const [model, setModel]   = useState("haiku");
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -46,7 +53,7 @@ export default function ChatAdvisor({ open, onOpenChange, context = {} }) {
       const res = await fetch(`${API_URL}/api/v1/advisor/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, context }),
+        body: JSON.stringify({ messages: history, context, model }),
         signal: AbortSignal.timeout(30000),
       });
       if (!res.ok) throw new Error(`${res.status}`);
@@ -90,13 +97,32 @@ export default function ChatAdvisor({ open, onOpenChange, context = {} }) {
           <style>{`@keyframes chatSlideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
           {/* Header */}
-          <div style={{ background: NAVY, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: "50%", background: GOLD, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-              💬
+          <div style={{ background: NAVY, padding: "14px 18px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: GOLD, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                💬
+              </div>
+              <div>
+                <p style={{ color: WHITE, fontSize: 14, fontWeight: 700, margin: 0 }}>AI Quote Advisor</p>
+                <p style={{ color: OK, fontSize: 11, margin: 0, fontWeight: 600 }}>● Powered by Claude</p>
+              </div>
             </div>
-            <div>
-              <p style={{ color: WHITE, fontSize: 14, fontWeight: 700, margin: 0 }}>AI Quote Advisor</p>
-              <p style={{ color: OK, fontSize: 11, margin: 0, fontWeight: 600 }}>● Powered by Claude</p>
+            <div style={{ display: "flex", gap: 6 }}>
+              {MODELS.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setModel(m.id)}
+                  style={{
+                    flex: 1, padding: "4px 0", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                    border: `1.5px solid ${model === m.id ? GOLD : "rgba(255,255,255,0.25)"}`,
+                    background: model === m.id ? GOLD : "transparent",
+                    color: model === m.id ? NAVY : "rgba(255,255,255,0.75)",
+                    cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                  }}
+                >
+                  {m.label} <span style={{ fontSize: 9, opacity: 0.8 }}>{m.badge}</span>
+                </button>
+              ))}
             </div>
           </div>
 

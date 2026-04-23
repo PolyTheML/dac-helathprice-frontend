@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Local tooling / IDE state
+.claude/
+.obsidian/
+graphify-out/
+.graphify_uncached.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

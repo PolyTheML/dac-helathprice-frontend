@@ -4,9 +4,9 @@ import ApplicationWizard from "./ApplicationWizard";
 import StatusTracker from "./StatusTracker";
 import UnderwriterDashboard from "./UnderwriterDashboard";
 import AdminConsole from "./AdminConsole";
-import PlatformExplorer from "./PlatformExplorer";
 import ActuarialAILab from "./ActuarialAILab";
 import PublicPortal from "./portal/PublicPortal";
+import AutoUnderwriting from "./AutoUnderwriting";
 import { API_URL, clearAuth, getRole, getUser } from "./auth";
 
 function LoginPage({ onLogin }) {
@@ -130,7 +130,7 @@ function FadeIn({ children, delay = 0, className = "" }) {
 }
 
 // ─── PAGES ──────────────────────────────────────────────────────────────────
-const ALL_PAGES = ["Home", "New Case", "Case Pipeline", "Life Insurance", "AI Lab", "Admin", "Platform"];
+const ALL_PAGES = ["New Case", "Case Pipeline", "Life Insurance", "Auto Underwriting", "AI Lab", "Admin"];
 const ROLE_PAGES = {
   admin:       ALL_PAGES,
   underwriter: ALL_PAGES,
@@ -141,7 +141,7 @@ export default function App() {
   // Public portal — no staff auth required
   if (window.location.pathname.startsWith("/portal")) return <PublicPortal />;
 
-  const [page, setPage] = useState("Home");
+  const [page, setPage] = useState("New Case");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [authed, setAuthed] = useState(() => !!sessionStorage.getItem("dac_token"));
@@ -217,7 +217,7 @@ export default function App() {
         borderBottom: scrollY>60 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px", display:"flex", alignItems:"center", justifyContent:"space-between", height:72 }}>
           {/* Logo */}
-          <div style={{ display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={() => setPage("Home")}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={() => setPage("New Case")}>
             <img src="/DAC.png" alt="DAC" style={{ width:120, height:120, objectFit:"contain" }} />
             <span style={{ color:WHITE, fontSize:20, fontWeight:700, letterSpacing:-0.5 }}>DAC <span style={{ color:GOLD }}>HealthPrice</span></span>
           </div>
@@ -242,13 +242,12 @@ export default function App() {
         </div>
       )}
 
-      {page === "Home" && <HomePage onGetQuote={() => { setPage("New Case"); window.scrollTo(0, 0); }} />}
       {page === "New Case" && <ApplicationWizard />}
       {page === "Case Pipeline" && <UnderwriterDashboard />}
       {page === "Life Insurance" && <LifeInsurancePricer />}
       {page === "AI Lab" && <ActuarialAILab />}
+      {page === "Auto Underwriting" && <AutoUnderwriting />}
       {page === "Admin" && <AdminConsole />}
-      {page === "Platform" && <PlatformExplorer />}
 
       {/* ═══ FOOTER ═══ */}
       <footer style={{ background: NAVY_D, color: GRAY, padding: "64px 24px 32px" }}>
