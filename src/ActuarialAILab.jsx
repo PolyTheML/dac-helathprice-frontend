@@ -288,12 +288,15 @@ export default function ActuarialAILab() {
               {/* Upload prompt */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                style={{ display: "inline-flex", alignItems: "center", gap: 10, margin: "28px auto 0", padding: "14px 28px", borderRadius: 12,
-                  border: `2px dashed ${C.border}`, background: C.white, cursor: "pointer", transition: "all 0.2s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.background = C.goldLight; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.white; }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 12, margin: "28px auto 0", padding: "16px 32px", borderRadius: 16,
+                  border: `2px dashed ${C.border}`, background: C.white, cursor: "pointer", transition: "all 0.25s",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.background = C.goldLight; e.currentTarget.style.boxShadow = "0 4px 16px rgba(245,166,35,0.15)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.white; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)"; }}
               >
-                <span style={{ fontSize: 20 }}>+</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.navy} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/>
+                </svg>
                 <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Upload CSV or Excel</span>
               </div>
               <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={e => uploadFile(e.target.files[0])} />
@@ -530,47 +533,55 @@ export default function ActuarialAILab() {
             </div>
           )}
 
-          {/* Input box */}
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <button onClick={() => fileInputRef.current?.click()}
-              style={{ width: 44, height: 44, borderRadius: 12, border: `1px solid ${C.border}`, background: C.white,
-                color: C.text3, fontSize: 20, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "inherit", transition: "all 0.15s" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.text3; }}
-              title="Upload file">
-              +
-            </button>
-            <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={e => uploadFile(e.target.files[0])} />
-
-            <div style={{ flex: 1, position: "relative" }}>
-              <textarea
-                ref={inputRef}
-                className="ailab-input"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={fileMeta ? "Ask about your data... e.g., 'Build a frequency model'" : "Upload a file to get started, or ask a general actuarial question"}
-                rows={1}
-                style={{ width: "100%", padding: "12px 50px 12px 16px", borderRadius: 14, border: `1.5px solid ${C.border}`,
-                  background: C.white, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none",
-                  minHeight: 44, maxHeight: 120, lineHeight: 1.4 }}
-              />
+          {/* Input box — modern chatbot style */}
+          <div style={{ position: "relative", background: C.white, borderRadius: 20, border: `1.5px solid ${C.border}`,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.06)", transition: "border-color 0.2s" }}
+            onFocus={e => e.currentTarget.style.borderColor = C.navyLight}
+            onBlur={e => e.currentTarget.style.borderColor = C.border}>
+            <textarea
+              ref={inputRef}
+              className="ailab-input"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={fileMeta ? "Ask about your data... e.g., 'Build a frequency model'" : "Upload a file to start, or ask an actuarial question..."}
+              rows={1}
+              style={{ width: "100%", padding: "16px 100px 16px 20px", borderRadius: 20, border: "none", outline: "none",
+                background: "transparent", color: C.text, fontSize: 14.5, fontFamily: "inherit", resize: "none",
+                minHeight: 52, maxHeight: 140, lineHeight: 1.5, boxSizing: "border-box" }}
+            />
+            <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
+              <button onClick={() => fileInputRef.current?.click()}
+                style={{ width: 36, height: 36, borderRadius: 10, border: "none", background: "transparent",
+                  color: C.text3, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = C.goldLight; e.currentTarget.style.color = C.gold; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.text3; }}
+                title="Upload CSV or Excel file">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                </svg>
+              </button>
+              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={e => uploadFile(e.target.files[0])} />
               <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
-                style={{ position: "absolute", right: 6, bottom: 6, width: 34, height: 34, borderRadius: 10, border: "none",
+                style={{ width: 36, height: 36, borderRadius: 10, border: "none",
                   background: input.trim() && !loading ? C.navy : C.borderLight,
                   color: input.trim() && !loading ? C.white : C.text3,
-                  fontSize: 16, fontWeight: 700, cursor: input.trim() && !loading ? "pointer" : "default",
-                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+                  cursor: input.trim() && !loading ? "pointer" : "default",
+                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}
+                onMouseEnter={e => { if (input.trim() && !loading) e.currentTarget.style.background = C.navyLight; }}
+                onMouseLeave={e => { if (input.trim() && !loading) e.currentTarget.style.background = C.navy; }}>
                 {loading ? (
                   <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid #fff", borderTopColor: "transparent", animation: "spin 0.8s linear infinite" }} />
-                ) : ">"}
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                )}
               </button>
             </div>
           </div>
 
           <div style={{ textAlign: "center", marginTop: 10 }}>
-            <span style={{ fontSize: 11, color: C.text3 }}>DAC Actuarial AI Lab — powered by Groq + Python. Results are AI-generated and should be reviewed by a qualified actuary.</span>
+            <span style={{ fontSize: 11, color: C.text3 }}>DAC Actuarial AI Lab — powered by Claude + Python. Results should be reviewed by a qualified actuary.</span>
           </div>
         </div>
       </div>
