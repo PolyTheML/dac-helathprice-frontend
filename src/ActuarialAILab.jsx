@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
-const API = "https://dac-healthprice-api-49dr.onrender.com";
+const API = "https://dac-healthprice-api.onrender.com";
 
 // ── Colors ──────────────────────────────────────────────────────────────────
 const C = {
