@@ -793,8 +793,9 @@ ${validation.warnings?.length > 0 ? validation.warnings.join("\n") : "✅ Report
                   <div style={{ flex: 1, minWidth: 0, marginRight: 20 }}>
                     {msg.explanation && (
                       <div>
-                        <div style={{ fontSize: 14, color: C.text, lineHeight: 1.75, marginBottom: msg.hasCode ? 12 : 0 }}
-                          dangerouslySetInnerHTML={{ __html: safeRenderMarkdown(msg.explanation) }} />
+                        <div style={{ fontSize: 14, color: C.text, lineHeight: 1.75, marginBottom: msg.hasCode ? 12 : 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          {msg.explanation}
+                        </div>
                         {/* COPY & REGENERATE BUTTONS */}
                         <div style={{ display: "flex", gap: 8, marginTop: 12, marginBottom: 12 }}>
                           <button onClick={() => copyToClipboard(msg.explanation)} style={{ padding: "6px 12px", borderRadius: 6, background: C.borderLight, border: "none", color: C.text2, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s" }}
