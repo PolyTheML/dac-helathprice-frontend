@@ -332,7 +332,17 @@ function removeCodeBlocks(text) {
 }
 
 function renderMarkdown(text) {
-  if (!text || typeof text !== "string") return "";
+  // Defensive: ensure text is a string
+  if (text === null || text === undefined) return "";
+  if (typeof text !== "string") {
+    try {
+      text = String(text);
+    } catch {
+      return "";
+    }
+  }
+  if (text.trim() === "") return "";
+
   try {
     return text
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
@@ -340,40 +350,44 @@ function renderMarkdown(text) {
       .replace(/`(.*?)`/g, `<code style="background:${C.borderLight};padding:2px 7px;border-radius:4px;font-size:12.5px;color:${C.navy}">$1</code>`)
       .replace(/\n/g, "<br/>");
   } catch (e) {
-    console.error("Markdown render error:", e);
-    return String(text);
+    console.error("Markdown render error:", e, "text:", text);
+    return text ? String(text).substring(0, 200) : "";
   }
 }
 
 // ── Supabase History Management ──────────────────────────────────────────────
 async function saveToSupabase(report, analysisStep, fileName) {
   try {
+    if (!report || !analysisStep) {
+      console.warn("⚠️ Missing report or analysisStep for Supabase save");
+      return null;
+    }
     const entry = {
       timestamp: new Date().toISOString(),
       filename: fileName || "analysis",
-      title: report.title || analysisStep.label,
+      title: report.title || analysisStep.label || "Untitled",
       summary: report.summary || "",
       findings: JSON.stringify(report.findings || []),
-      purpose: analysisStep.purpose,
-      analysis_type: analysisStep.label,
-      report_json: JSON.stringify(report),
+      purpose: analysisStep.purpose || "",
+      analysis_type: analysisStep.label || "Unknown",
+      report_json: JSON.stringify(report || {}),
     };
     const result = await supabase.insert("ailab_history", entry);
     console.log("✅ Saved to Supabase:", result);
     return result;
   } catch (e) {
-    console.error("❌ Supabase save failed:", e);
-    throw e;
+    console.error("❌ Supabase save failed (non-critical):", e.message);
+    return null;
   }
 }
 
 async function loadSupabaseHistory() {
   try {
     const data = await supabase.select("ailab_history", "?order=timestamp.desc&limit=50");
-    console.log("✅ Loaded history from Supabase:", data);
-    return data || [];
+    console.log("✅ Loaded history from Supabase:", data?.length || 0, "entries");
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    console.error("❌ Supabase load failed:", e);
+    console.warn("⚠️ Supabase history load failed (non-critical):", e.message);
     return [];
   }
 }
@@ -561,22 +575,28 @@ export default function ActuarialAILabEnhanced() {
   };
 
   // ── Report Validation Display ──────────────────────────────────────
-  const showValidation = () => {
-    if (!currentReport) return;
-    const validation = validateReport(currentReport);
-    const validationMsg = `
-📋 REPORT VALIDATION
-Score: ${validation.score}/100
+  const showValidation = useCallback(() => {
+    if (!currentReport) {
+      setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "warning", content: "⚠️ No report to validate yet" }]);
+      return;
+    }
+    try {
+      const validation = validateReport(currentReport || {});
+      const validationMsg = `📋 REPORT VALIDATION
+Score: ${validation.score || 0}/100
 Valid: ${validation.valid ? "✅ Yes" : "❌ No"}
 
 Issues:
-${validation.issues.length > 0 ? validation.issues.join("\n") : "✅ No critical issues"}
+${validation.issues?.length > 0 ? validation.issues.join("\n") : "✅ No critical issues"}
 
 Recommendations:
-${validation.warnings.length > 0 ? validation.warnings.join("\n") : "✅ Report looks good"}
-    `;
-    setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "info", content: validationMsg }]);
-  };
+${validation.warnings?.length > 0 ? validation.warnings.join("\n") : "✅ Report looks good"}`;
+      setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "info", content: validationMsg }]);
+    } catch (e) {
+      console.error("Validation error:", e);
+      setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "error", content: `Validation error: ${e.message}` }]);
+    }
+  }, [currentReport]);
 
   // ── Render ──────────────────────────────────────────────────────────
   return (
