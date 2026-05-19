@@ -250,12 +250,17 @@ function removeCodeBlocks(text) {
 }
 
 function renderMarkdown(text) {
-  if (!text) return "";
-  return text
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/`(.*?)`/g, `<code style="background:${C.borderLight};padding:2px 7px;border-radius:4px;font-size:12.5px;color:${C.navy}">$1</code>`)
-    .replace(/\n/g, "<br/>");
+  if (!text || typeof text !== "string") return "";
+  try {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/`(.*?)`/g, `<code style="background:${C.borderLight};padding:2px 7px;border-radius:4px;font-size:12.5px;color:${C.navy}">$1</code>`)
+      .replace(/\n/g, "<br/>");
+  } catch (e) {
+    console.error("Markdown render error:", e);
+    return String(text);
+  }
 }
 
 // ── MAIN COMPONENT ──────────────────────────────────────────────────────
