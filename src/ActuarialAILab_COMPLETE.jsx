@@ -600,7 +600,7 @@ export default function ActuarialAILabComplete() {
 
         {/* Input Area */}
         <div style={{ padding: "16px 20px", borderTop: `1px solid ${C.border}`, background: C.white }}>
-          <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
             <textarea
               ref={inputRef}
               value={input}
@@ -616,12 +616,26 @@ export default function ActuarialAILabComplete() {
               }}
             />
             <button
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                width: 44, height: 44, borderRadius: 10, background: C.borderLight, border: "none", color: C.text3,
+                cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.gold; e.currentTarget.style.color = C.white; }}
+              onMouseLeave={e => { e.currentTarget.style.background = C.borderLight; e.currentTarget.style.color = C.text3; }}
+              title="Upload file"
+            >
+              📎
+            </button>
+            <button
               onClick={() => sendMessage()}
               disabled={!fileMeta || loading || !input.trim()}
               style={{
                 width: 44, height: 44, borderRadius: 10, background: fileMeta && input.trim() && !loading ? C.navy : C.borderLight,
-                border: "none", color: C.white, cursor: "pointer", fontSize: 18, fontWeight: 600,
+                border: "none", color: C.white, cursor: "pointer", fontSize: 18, fontWeight: 600, transition: "all 0.2s"
               }}
+              onMouseEnter={e => fileMeta && input.trim() && !loading && (e.currentTarget.style.background = C.navyLight)}
+              onMouseLeave={e => fileMeta && input.trim() && !loading && (e.currentTarget.style.background = C.navy)}
             >
               ↑
             </button>
