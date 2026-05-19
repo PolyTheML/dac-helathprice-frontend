@@ -332,26 +332,62 @@ function removeCodeBlocks(text) {
 }
 
 function renderMarkdown(text) {
-  // Defensive: ensure text is a string
-  if (text === null || text === undefined) return "";
-  if (typeof text !== "string") {
-    try {
-      text = String(text);
-    } catch {
-      return "";
+  // Extreme defensive checks
+  if (!text) return "";
+
+  // Handle all non-string types
+  let str = text;
+  if (typeof str !== "string") {
+    if (typeof str === "object") {
+      // If it's an object, try to get a string representation
+      try {
+        str = str.toString ? str.toString() : JSON.stringify(str);
+      } catch {
+        str = "[Object]";
+      }
+    } else {
+      str = String(str) || "";
     }
   }
-  if (text.trim() === "") return "";
+
+  if (!str || typeof str !== "string" || str.trim() === "") return "";
 
   try {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      .replace(/`(.*?)`/g, `<code style="background:${C.borderLight};padding:2px 7px;border-radius:4px;font-size:12.5px;color:${C.navy}">$1</code>`)
-      .replace(/\n/g, "<br/>");
+    // Safely apply markdown transformations
+    let result = str;
+
+    // Protect against undefined at each step
+    if (result && typeof result === "string") {
+      result = result.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    }
+    if (result && typeof result === "string") {
+      result = result.replace(/\*(.*?)\*/g, "<em>$1</em>");
+    }
+    if (result && typeof result === "string") {
+      result = result.replace(/`(.*?)`/g, `<code style="background:${C.borderLight};padding:2px 7px;border-radius:4px;font-size:12.5px;color:${C.navy}">$1</code>`);
+    }
+    if (result && typeof result === "string") {
+      result = result.replace(/\n/g, "<br/>");
+    }
+
+    return result || "";
   } catch (e) {
-    console.error("Markdown render error:", e, "text:", text);
-    return text ? String(text).substring(0, 200) : "";
+    console.error("Markdown error:", e);
+    try {
+      return String(text).substring(0, 500) || "";
+    } catch {
+      return "[Error rendering content]";
+    }
+  }
+}
+
+// Safe wrapper for rendering
+function safeRenderMarkdown(text) {
+  try {
+    return renderMarkdown(text);
+  } catch (e) {
+    console.error("Safe render failed:", e);
+    return "[Content unavailable]";
   }
 }
 
@@ -758,7 +794,7 @@ ${validation.warnings?.length > 0 ? validation.warnings.join("\n") : "✅ Report
                     {msg.explanation && (
                       <div>
                         <div style={{ fontSize: 14, color: C.text, lineHeight: 1.75, marginBottom: msg.hasCode ? 12 : 0 }}
-                          dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.explanation) }} />
+                          dangerouslySetInnerHTML={{ __html: safeRenderMarkdown(msg.explanation) }} />
                         {/* COPY & REGENERATE BUTTONS */}
                         <div style={{ display: "flex", gap: 8, marginTop: 12, marginBottom: 12 }}>
                           <button onClick={() => copyToClipboard(msg.explanation)} style={{ padding: "6px 12px", borderRadius: 6, background: C.borderLight, border: "none", color: C.text2, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s" }}
