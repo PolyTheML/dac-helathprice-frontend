@@ -4,7 +4,7 @@ import ApplicationWizard from "./ApplicationWizard";
 import StatusTracker from "./StatusTracker";
 import UnderwriterDashboard from "./UnderwriterDashboard";
 import AdminConsole from "./AdminConsole";
-import ActuarialAILab from "./ActuarialAILab";
+import ActuarialAILab from "./ActuarialAILab_ENHANCED";
 import PublicPortal from "./portal/PublicPortal";
 import AutoUnderwriting from "./AutoUnderwriting";
 import { API_URL, clearAuth, getRole, getUser } from "./auth";
