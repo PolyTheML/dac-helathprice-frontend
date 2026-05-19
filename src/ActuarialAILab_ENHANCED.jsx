@@ -2,6 +2,31 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 const API = "https://dac-healthprice-api.onrender.com";
 
+// ── Supabase Configuration ──────────────────────────────────────────────────
+const SUPABASE_URL = "https://xtdxrpfuidrebdbfvq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZHhycGZ1aWRyZWRiZmZ2cSIsInJvbGUiOiJhbm9uIiwiYXVkIjoiYXV0aGVudGljYXRlZCIsImlhdCI6MTcxNDc2MjAwMCwiZXhwIjoxNzQ2Mjk4MDAwfQ.sb_publishable_j66-v3uNKuF9pu0mmqMIIA_XSZ4_rML";
+
+// Simple Supabase Client
+class SupabaseClient {
+  constructor(url, key) {
+    this.url = url;
+    this.key = key;
+  }
+  async request(method, path, body = null) {
+    const opts = {
+      method,
+      headers: { "apikey": this.key, "Content-Type": "application/json" },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${this.url}/rest/v1${path}`, opts);
+    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+    return res.json();
+  }
+  insert(table, data) { return this.request("POST", `/${table}`, data); }
+  select(table, query = "") { return this.request("GET", `/${table}${query}`); }
+}
+const supabase = new SupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // ── Colors (KEEP ORIGINAL - NO CHANGES) ──────────────────────────────────
 const C = {
   bg: "#fafbfc", sidebar: "#ffffff", border: "#e8ecf1", borderLight: "#f0f2f5",
@@ -12,6 +37,63 @@ const C = {
   codeBg: "#1e1e2e", codeText: "#cdd6f4",
   purple: "#8b5cf6", purpleBg: "#faf5ff", orange: "#f59e0b", orangeBg: "#fffbeb",
 };
+
+// ── Report Validation & Grammar Checking ───────────────────────────────────
+const REQUIRED_SECTIONS = [
+  { name: "Summary", minWords: 100, description: "Executive overview" },
+  { name: "Findings", minWords: 50, description: "Key discoveries" },
+  { name: "Methodology", minWords: 100, description: "Technical approach" },
+  { name: "Recommendations", minWords: 50, description: "Actionable insights" },
+];
+
+function validateReport(report) {
+  const issues = [];
+  const warnings = [];
+
+  // Check title
+  if (!report.title || report.title.trim().length < 5) {
+    issues.push("❌ Title is missing or too short");
+  }
+
+  // Check sections
+  REQUIRED_SECTIONS.forEach(section => {
+    const content = report[section.name.toLowerCase()] || "";
+    const words = content.trim().split(/\s+/).length;
+    if (words < section.minWords) {
+      warnings.push(`⚠️ ${section.name}: Only ${words} words (min ${section.minWords})`);
+    }
+  });
+
+  // Check for technical content
+  const fullText = Object.values(report).join(" ").toLowerCase();
+  const hasNumbers = /\d+[\.,]\d+|[$€¥£%]/.test(fullText);
+  const hasTables = report.findings?.includes("table") || report.methodology?.includes("method");
+
+  if (!hasNumbers) warnings.push("⚠️ No numeric data or metrics detected");
+  if (!hasTables && !hasNumbers) warnings.push("⚠️ Missing charts or tables");
+
+  // Grammar checks
+  const grammarIssues = checkGrammar(fullText);
+  warnings.push(...grammarIssues);
+
+  return { valid: issues.length === 0, issues, warnings, score: 100 - (issues.length * 20 + warnings.length * 5) };
+}
+
+function checkGrammar(text) {
+  const issues = [];
+  const patterns = [
+    { regex: /\b([A-Z]{2,})\s+([A-Z]{2,})\b/g, msg: "Possible acronym without explanation" },
+    { regex: /\s{2,}/g, msg: "Multiple spaces detected" },
+    { regex: /[a-z]\.[A-Z]/g, msg: "Missing space after period" },
+    { regex: /\b(is|are)\s+(is|are)\b/gi, msg: "Duplicate word detected" },
+  ];
+
+  patterns.forEach(p => {
+    if (p.regex.test(text)) issues.push(`⚠️ ${p.msg}`);
+  });
+
+  return issues;
+}
 
 // ── Actuarial Quick Actions ─────────────────────────────────────────────────
 const SUGGESTIONS = [
@@ -263,6 +345,39 @@ function renderMarkdown(text) {
   }
 }
 
+// ── Supabase History Management ──────────────────────────────────────────────
+async function saveToSupabase(report, analysisStep, fileName) {
+  try {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      filename: fileName || "analysis",
+      title: report.title || analysisStep.label,
+      summary: report.summary || "",
+      findings: JSON.stringify(report.findings || []),
+      purpose: analysisStep.purpose,
+      analysis_type: analysisStep.label,
+      report_json: JSON.stringify(report),
+    };
+    const result = await supabase.insert("ailab_history", entry);
+    console.log("✅ Saved to Supabase:", result);
+    return result;
+  } catch (e) {
+    console.error("❌ Supabase save failed:", e);
+    throw e;
+  }
+}
+
+async function loadSupabaseHistory() {
+  try {
+    const data = await supabase.select("ailab_history", "?order=timestamp.desc&limit=50");
+    console.log("✅ Loaded history from Supabase:", data);
+    return data || [];
+  } catch (e) {
+    console.error("❌ Supabase load failed:", e);
+    return [];
+  }
+}
+
 // ── MAIN COMPONENT ──────────────────────────────────────────────────────
 export default function ActuarialAILabEnhanced() {
   const [messages, setMessages] = useState([]);
@@ -286,6 +401,14 @@ export default function ActuarialAILabEnhanced() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // ── Load History from Supabase ──────────────────────────────────────
+  useEffect(() => {
+    loadSupabaseHistory().then(hist => {
+      setAnalysisHistory(hist);
+      localStorage.setItem("ailab_history", JSON.stringify(hist));
+    }).catch(e => console.warn("Could not load Supabase history:", e));
+  }, []);
 
   // ── File Upload ─────────────────────────────────────────────────────
   const uploadFile = useCallback(async (selectedFile) => {
@@ -416,8 +539,8 @@ export default function ActuarialAILabEnhanced() {
   };
 
   // ── NEW: Save to History ────────────────────────────────────────────
-  const saveToHistory = () => {
-    if (currentReport && fileMeta) {
+  const saveToHistory = async () => {
+    if (currentReport && fileMeta && currentAnalysisStep) {
       const historyEntry = {
         id: Date.now(),
         timestamp: new Date().toLocaleString(),
@@ -427,7 +550,32 @@ export default function ActuarialAILabEnhanced() {
         purpose: currentReport.purpose,
       };
       setAnalysisHistory([historyEntry, ...analysisHistory]);
+      // Save to Supabase
+      try {
+        await saveToSupabase(currentReport, currentAnalysisStep, fileMeta.filename);
+        setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "success", content: "✅ Report saved to Supabase" }]);
+      } catch (e) {
+        setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "error", content: `Failed to save to Supabase: ${e.message}` }]);
+      }
     }
+  };
+
+  // ── Report Validation Display ──────────────────────────────────────
+  const showValidation = () => {
+    if (!currentReport) return;
+    const validation = validateReport(currentReport);
+    const validationMsg = `
+📋 REPORT VALIDATION
+Score: ${validation.score}/100
+Valid: ${validation.valid ? "✅ Yes" : "❌ No"}
+
+Issues:
+${validation.issues.length > 0 ? validation.issues.join("\n") : "✅ No critical issues"}
+
+Recommendations:
+${validation.warnings.length > 0 ? validation.warnings.join("\n") : "✅ Report looks good"}
+    `;
+    setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "info", content: validationMsg }]);
   };
 
   // ── Render ──────────────────────────────────────────────────────────
@@ -755,6 +903,12 @@ export default function ActuarialAILabEnhanced() {
                   onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
                   onMouseLeave={e => e.currentTarget.style.opacity = 1}>
                   📜 Save
+                </button>
+                <button onClick={showValidation}
+                  style={{ padding: "6px 12px", borderRadius: 6, background: "#06b6d4", border: "none", color: C.white, fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.2s" }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 1}>
+                  ✓ Check
                 </button>
               </div>
             </div>
