@@ -454,12 +454,14 @@ export default function ActuarialAILabEnhanced() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ── Load History from Supabase ──────────────────────────────────────
+  // ── Load History from localStorage (Supabase disabled due to CSP) ──
   useEffect(() => {
-    loadSupabaseHistory().then(hist => {
-      setAnalysisHistory(hist);
-      localStorage.setItem("ailab_history", JSON.stringify(hist));
-    }).catch(e => console.warn("Could not load Supabase history:", e));
+    try {
+      const stored = localStorage.getItem("ailab_history");
+      if (stored) setAnalysisHistory(JSON.parse(stored));
+    } catch (e) {
+      console.warn("Could not load local history:", e);
+    }
   }, []);
 
   // ── File Upload ─────────────────────────────────────────────────────
@@ -534,8 +536,10 @@ export default function ActuarialAILabEnhanced() {
         body: JSON.stringify({ message: msg, history, filename: fileMeta?.filename || "" })
       });
       const data = await res.json();
+      console.log("📡 API Response:", data);
       const aiMsgId = Date.now() + 1;
-      const responseText = data.response || "Analysis complete";
+      const responseText = String(data.response || data.message || data.text || "Analysis complete").trim();
+      console.log("📝 Response Text:", responseText);
       const codeBlocks = extractCodeBlocks(responseText);
       const explanation = removeCodeBlocks(responseText);
 
@@ -591,7 +595,7 @@ export default function ActuarialAILabEnhanced() {
     }
   };
 
-  // ── NEW: Save to History ────────────────────────────────────────────
+  // ── NEW: Save to History (localStorage only - Supabase disabled) ────
   const saveToHistory = async () => {
     if (currentReport && fileMeta && currentAnalysisStep) {
       const historyEntry = {
@@ -602,14 +606,10 @@ export default function ActuarialAILabEnhanced() {
         findings: currentReport.findings,
         purpose: currentReport.purpose,
       };
-      setAnalysisHistory([historyEntry, ...analysisHistory]);
-      // Save to Supabase
-      try {
-        await saveToSupabase(currentReport, currentAnalysisStep, fileMeta.filename);
-        setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "success", content: "✅ Report saved to Supabase" }]);
-      } catch (e) {
-        setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "error", content: `Failed to save to Supabase: ${e.message}` }]);
-      }
+      const updated = [historyEntry, ...analysisHistory];
+      setAnalysisHistory(updated);
+      localStorage.setItem("ailab_history", JSON.stringify(updated));
+      setMessages(prev => [...prev, { id: Date.now(), role: "system", type: "success", content: "✅ Report saved locally" }]);
     }
   };
 
@@ -797,7 +797,7 @@ ${validation.warnings?.length > 0 ? validation.warnings.join("\n") : "✅ Report
                     {msg.explanation && (
                       <div>
                         <div style={{ fontSize: 14, color: C.text, lineHeight: 1.75, marginBottom: msg.hasCode ? 12 : 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                          {msg.explanation}
+                          {msg.explanation || msg.content || "Processing..."}
                         </div>
                         {/* COPY & REGENERATE BUTTONS */}
                         <div style={{ display: "flex", gap: 8, marginTop: 12, marginBottom: 12 }}>
