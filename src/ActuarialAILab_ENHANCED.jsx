@@ -320,6 +320,7 @@ function OutputTable({ content }) {
 
 // ── Extract code blocks ──────────────────────────────────────────────────
 function extractCodeBlocks(text) {
+  if (!text || typeof text !== "string") return [];
   const blocks = [];
   const regex = /```python\n?([\s\S]*?)```/g;
   let m;
@@ -328,6 +329,7 @@ function extractCodeBlocks(text) {
 }
 
 function removeCodeBlocks(text) {
+  if (!text || typeof text !== "string") return "";
   return text.replace(/```python\n?[\s\S]*?```/g, "").trim();
 }
 
@@ -533,13 +535,14 @@ export default function ActuarialAILabEnhanced() {
       });
       const data = await res.json();
       const aiMsgId = Date.now() + 1;
-      const codeBlocks = extractCodeBlocks(data.response);
-      const explanation = removeCodeBlocks(data.response);
+      const responseText = data.response || "Analysis complete";
+      const codeBlocks = extractCodeBlocks(responseText);
+      const explanation = removeCodeBlocks(responseText);
 
       const aiMsg = {
         id: aiMsgId,
         role: "assistant",
-        content: data.response,
+        content: responseText,
         explanation,
         codeBlocks,
         hasCode: codeBlocks.length > 0,
