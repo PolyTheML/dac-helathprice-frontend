@@ -538,7 +538,10 @@ export default function ActuarialAILabEnhanced() {
       const data = await res.json();
       console.log("📡 API Response:", data);
       const aiMsgId = Date.now() + 1;
-      const responseText = String(data.response || data.message || data.text || "Analysis complete").trim();
+      const responseText = String(data.response || data.message || data.text || "").trim();
+      if (!responseText) {
+        throw new Error("No response from Claude");
+      }
       console.log("📝 Response Text:", responseText);
       const codeBlocks = extractCodeBlocks(responseText);
       const explanation = removeCodeBlocks(responseText);
