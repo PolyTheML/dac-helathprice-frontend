@@ -588,12 +588,75 @@ export default function ActuarialAILabEnhanced() {
                     <span style={{ fontSize: 11, fontWeight: 800, color: C.white }}>AI</span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0, marginRight: 20 }}>
+
+                    {/* Collapsible code execution (Julius-style) — shown BEFORE explanation */}
+                    {msg.hasCode && (
+                      <div style={{ marginBottom: 12 }}>
+                        {/* "Ran 1 step" toggle */}
+                        <div
+                          onClick={() => setShowCodeFor(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px",
+                            borderRadius: 8, background: C.borderLight, cursor: "pointer", fontSize: 13,
+                            color: C.text2, transition: "all 0.2s", userSelect: "none" }}
+                          onMouseEnter={e => { e.currentTarget.style.background = C.border; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = C.borderLight; }}
+                        >
+                          <span style={{ fontWeight: 600 }}>Ran {msg.codeBlocks?.length || 1} step{(msg.codeBlocks?.length || 1) > 1 ? "s" : ""}</span>
+                          <span style={{ fontSize: 12, color: C.navy, fontFamily: "monospace" }}>&lt;/&gt;</span>
+                          <span style={{ fontSize: 10, transform: showCodeFor[msg.id] ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▼</span>
+                        </div>
+
+                        {/* Expanded: show Generated Code */}
+                        {showCodeFor[msg.id] && (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontFamily: "monospace" }}>&lt;/&gt;</span> Generated Code
+                            </div>
+                            <div style={{ background: C.codeBg, borderRadius: 10, padding: 16, overflow: "auto", maxHeight: 400 }}>
+                              <pre style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: C.codeText, fontFamily: "'Fira Code', 'Monaco', monospace", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                {msg.codeBlocks?.join("\n\n") || ""}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Execution results: charts + stdout (always visible) */}
+                    {msg.execution && (
+                      <div style={{ marginBottom: 12 }}>
+                        {msg.execution.charts?.length > 0 && (
+                          <div className="chart-grid" style={{ marginBottom: 12 }}>
+                            {msg.execution.charts.map((chart, ci) => (
+                              <div key={ci} style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, overflow: "hidden", aspectRatio: "4/3" }}>
+                                <img src={chart.data} alt={chart.filename} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {msg.execution.stdout && (
+                          <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden", marginBottom: 12 }}>
+                            <div style={{ padding: "14px 18px" }}>
+                              {parseOutput(msg.execution.stdout).map((block, bi) => (
+                                <div key={bi}>
+                                  {block.type === "table" ? <OutputTable content={block.content} /> :
+                                    <pre style={{ fontSize: 13, color: C.text2, margin: "4px 0", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{block.content}</pre>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Explanation text (always visible) */}
                     {msg.explanation && (
                       <div>
-                        <div style={{ fontSize: 14, color: C.text, lineHeight: 1.75, marginBottom: msg.hasCode ? 12 : 0 }}
+                        <div style={{ fontSize: 14, color: C.text, lineHeight: 1.75 }}
                           dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.explanation) }} />
-                        {/* COPY & REGENERATE BUTTONS */}
-                        <div style={{ display: "flex", gap: 8, marginTop: 12, marginBottom: 12 }}>
+                        {/* Copy & Regenerate buttons */}
+                        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                           <button onClick={() => copyToClipboard(msg.explanation)} style={{ padding: "6px 12px", borderRadius: 6, background: C.borderLight, border: "none", color: C.text2, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s" }}
                             onMouseEnter={e => { e.currentTarget.style.background = C.border; e.currentTarget.style.color = C.text; }}
                             onMouseLeave={e => { e.currentTarget.style.background = C.borderLight; e.currentTarget.style.color = C.text2; }}>
@@ -608,38 +671,6 @@ export default function ActuarialAILabEnhanced() {
                       </div>
                     )}
 
-                    {msg.execution && (
-                      <div>
-                        {/* ENHANCED: Charts Grid Layout (2x2) */}
-                        {msg.execution.charts?.length > 0 && (
-                          <div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 8 }}>
-                              📊 Made {msg.execution.charts.length} charts
-                            </div>
-                            <div className="chart-grid">
-                              {msg.execution.charts.map((chart, ci) => (
-                                <div key={ci} style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, overflow: "hidden", aspectRatio: "4/3" }}>
-                                  <img src={chart.data} alt={chart.filename} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {msg.execution.stdout && (
-                          <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden", marginBottom: 12, marginTop: 12 }}>
-                            <div style={{ padding: "14px 18px" }}>
-                              {parseOutput(msg.execution.stdout).map((block, bi) => (
-                                <div key={bi}>
-                                  {block.type === "table" ? <OutputTable content={block.content} /> :
-                                    <pre style={{ fontSize: 13, color: C.text2, margin: "4px 0", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{block.content}</pre>}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
