@@ -239,14 +239,17 @@ function OutputTable({ content }) {
 // ── Extract code blocks ──────────────────────────────────────────────────
 function extractCodeBlocks(text) {
   const blocks = [];
-  const regex = /```python\n?([\s\S]*?)```/g;
+  const regex = /```(?:python)?\n?([\s\S]*?)```/g;
   let m;
-  while ((m = regex.exec(text)) !== null) blocks.push(m[1].trim());
+  while ((m = regex.exec(text)) !== null) {
+    const code = m[1].trim();
+    if (code) blocks.push(code);
+  }
   return blocks;
 }
 
 function removeCodeBlocks(text) {
-  return text.replace(/```python\n?[\s\S]*?```/g, "").trim();
+  return text.replace(/```(?:python)?\n?[\s\S]*?```/g, "").trim();
 }
 
 function renderMarkdown(text) {
@@ -375,9 +378,10 @@ export default function ActuarialAILabEnhanced() {
       };
       setMessages(prev => [...prev, aiMsg]);
 
-      if (codeBlocks.length > 0 && analysisStep) {
+      if (codeBlocks.length > 0) {
         const allCode = codeBlocks.join("\n\n");
-        await executeCode(allCode, aiMsgId, analysisStep);
+        const step = analysisStep || { id: "custom", label: msg.substring(0, 50), purpose: msg };
+        await executeCode(allCode, aiMsgId, step);
       }
     } catch (e) {
       setMessages(prev => [...prev, { id: Date.now() + 1, role: "assistant", explanation: `Error: ${e.message}`, content: "", codeBlocks: [] }]);
