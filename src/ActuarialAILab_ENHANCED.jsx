@@ -375,6 +375,7 @@ export default function ActuarialAILabEnhanced() {
         hasCode: codeBlocks.length > 0,
         executed: false,
         analysisStep: analysisStep,
+        suggestions: data.suggestions || [],
       };
       setMessages(prev => [...prev, aiMsg]);
 
@@ -671,6 +672,26 @@ export default function ActuarialAILabEnhanced() {
                             onMouseLeave={e => { e.currentTarget.style.background = C.borderLight; e.currentTarget.style.color = C.text2; }}>
                             🔄 Regenerate
                           </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Context-aware suggestions (Julius-style) */}
+                    {msg.suggestions && msg.suggestions.length > 0 && (
+                      <div style={{ marginTop: 16, borderTop: `1px solid ${C.borderLight}`, paddingTop: 12 }}>
+                        <div style={{ fontSize: 12, color: C.text3, marginBottom: 8 }}>Suggestions</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {msg.suggestions.map((sug, si) => (
+                            <button key={si}
+                              onClick={() => sendMessage(sug)}
+                              style={{ padding: "10px 14px", borderRadius: 8, background: C.borderLight, border: "none",
+                                color: C.text, fontSize: 13, cursor: "pointer", textAlign: "left", transition: "all 0.2s",
+                                fontFamily: "inherit" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = C.border; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = C.borderLight; }}>
+                              {sug}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     )}
