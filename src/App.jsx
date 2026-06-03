@@ -247,8 +247,8 @@ export default function App() {
       {page === "Auto Underwriting" && <AutoUnderwriting />}
       {page === "Admin" && <AdminConsole />}
 
-      {/* ═══ FOOTER ═══ */}
-      <footer style={{ background: NAVY_D, color: GRAY, padding: "64px 24px 32px" }}>
+      {/* ═══ FOOTER (hidden on AI Lab — full-viewport layout) ═══ */}
+      {page !== "AI Lab" && <footer style={{ background: NAVY_D, color: GRAY, padding: "64px 24px 32px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 40, marginBottom: 48 }}>
             <div>
@@ -282,7 +282,7 @@ export default function App() {
             <p style={{ fontSize: 13 }}>Powered by frequency-severity ML models</p>
           </div>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }

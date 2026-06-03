@@ -408,7 +408,7 @@ export default function ActuarialAILabEnhanced() {
   // ── NEW: Regenerate Analysis ────────────────────────────────────────
   const regenerateAnalysis = () => {
     if (currentAnalysisStep && messages.length > 0) {
-      const userMsg = messages.find(m => m.role === "user")?.content;
+      const userMsg = [...messages].reverse().find(m => m.role === "user")?.content;
       if (userMsg) {
         sendMessage(userMsg, currentAnalysisStep);
       }
@@ -432,7 +432,9 @@ export default function ActuarialAILabEnhanced() {
 
   // ── Render ──────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", height: "100vh", background: C.bg, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 72px)", marginTop: 72, background: C.bg, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
+      {/* Hidden file input - always rendered so sidebar "New Analysis" button works */}
+      <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={e => { uploadFile(e.target.files[0]); e.target.value = ""; }} />
       <style>{`
         .ailab * { box-sizing: border-box; }
         .ailab-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(13,43,122,0.08); }
@@ -540,7 +542,6 @@ export default function ActuarialAILabEnhanced() {
                 </svg>
                 <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Upload CSV or Excel</span>
               </div>
-              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={e => uploadFile(e.target.files[0])} />
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginTop: 36, maxWidth: 700, margin: "36px auto 0" }}>
                 {SUGGESTIONS.map((s, i) => (
@@ -712,19 +713,19 @@ export default function ActuarialAILabEnhanced() {
           <div style={{ padding: "16px 20px", borderTop: `1px solid ${C.border}`, background: C.bg }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 8 }}>→ Next Steps</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {[
-                { text: "What is the main goal", icon: "🎯" },
-                { text: "How would you apply insights", icon: "💡" },
-                { text: "What else can you explore", icon: "🔍" }
-              ].map((sug, i) => (
-                <button key={i}
-                  onClick={() => sendMessage(sug.text)}
-                  style={{ padding: "8px 14px", borderRadius: 8, background: C.white, border: `1px solid ${C.border}`, fontSize: 12, fontWeight: 500, cursor: "pointer", color: C.text, transition: "all 0.2s" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = C.gold}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-                  {sug.icon} {sug.text}
-                </button>
-              ))}
+              {currentAnalysisStep.nextSteps.map((stepLabel, i) => {
+                const matchedStep = SUGGESTIONS.find(s => s.label === stepLabel);
+                return (
+                  <button key={i}
+                    onClick={() => matchedStep ? sendMessage(matchedStep.prompt, matchedStep) : sendMessage(stepLabel)}
+                    style={{ padding: "8px 14px", borderRadius: 8, background: C.white, border: `1px solid ${C.border}`, fontSize: 12, fontWeight: 500, cursor: "pointer", color: C.text, transition: "all 0.2s" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = C.gold}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
+                    {matchedStep ? <span style={{ width: 6, height: 6, borderRadius: "50%", background: matchedStep.color, display: "inline-block", marginRight: 6 }} /> : null}
+                    {stepLabel}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
